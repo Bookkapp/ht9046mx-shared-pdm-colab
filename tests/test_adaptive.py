@@ -99,7 +99,9 @@ class AdaptiveCalibrationTests(unittest.TestCase):
 
         detection_rate = float(np.mean(result["operational_risk"] >= 1.0))
         self.assertGreaterEqual(detection_rate, config.min_synthetic_detection_rate)
-        self.assertTrue((result["golden_feature_deviation"] >= 103.0).all())
+        np.testing.assert_allclose(
+            result["golden_feature_deviation"], 103.0, rtol=1e-9, atol=1e-9
+        )
 
     def test_runtime_promotes_only_after_new_shadow_observation(self):
         with tempfile.TemporaryDirectory() as temporary:
