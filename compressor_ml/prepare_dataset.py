@@ -155,15 +155,41 @@ def prepare_dataset(
         print(f"{machine_source.machine_id}: reading {len(paths)} file(s)", flush=True)
 
         for path in paths:
-            source_rows.append(
-                {
-                    "machine_id": machine_source.machine_id,
-                    "path": str(path.resolve()),
-                    "size_bytes": path.stat().st_size,
-                    "modified_utc": datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat(),
-                }
-            )
-            raw = read_handler_log(path, machine_source.machine_id)
+            source_record = {
+                "machine_id": machine_source.machine_id,
+                "path": str(path.resolve()),
+                "size_bytes": path.stat().st_size,
+                "modified_utc": datetime.fromtimestamp(path.stat().st_mtime, timezone.utc).isoformat(),
+            }
+            try:
+                raw = read_handler_log(path, machine_source.machine_id)
+            except Exception as exc:
+                error = f"{type(exc).__name__}: {exc}"
+                source_record.update({"ingest_status": "skipped", "ingest_error": error})
+                source_rows.append(source_record)
+                for module_id in requested_modules:
+                    quality_rows.append(
+                        {
+                            "machine_id": machine_source.machine_id,
+                            "module_id": module_id,
+                            "source_file": str(path.resolve()),
+                            "source_status": "skipped",
+                            "read_error": error,
+                            "raw_rows": 0,
+                            "accepted_rows": 0,
+                            "rejected_rows": 0,
+                            "complete_windows": 0,
+                            "selected_windows": 0,
+                            "imputed_short_gap_rows": 0,
+                        }
+                    )
+                print(
+                    f"Skipping unreadable source {path}: {error}",
+                    flush=True,
+                )
+                continue
+            source_record.update({"ingest_status": "loaded", "ingest_error": None})
+            source_rows.append(source_record)
             for module_id in requested_modules:
                 module_raw = raw.loc[raw["module_id"].eq(module_id)].copy()
                 valid, rejected = validate_and_filter(module_raw, config)
@@ -180,6 +206,8 @@ def prepare_dataset(
                         "machine_id": machine_source.machine_id,
                         "module_id": module_id,
                         "source_file": str(path.resolve()),
+                        "source_status": "loaded",
+                        "read_error": None,
                         "raw_rows": int(len(module_raw)),
                         "accepted_rows": int(len(valid)),
                         "rejected_rows": int(len(rejected)),

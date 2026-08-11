@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 import tempfile
 
@@ -10,7 +11,13 @@ from compressor_ml.config import PipelineConfig
 from compressor_ml.features import engineer_features
 from compressor_ml.preprocessing import validate_and_filter
 from compressor_ml.windowing import make_windows
-from compressor_ml.prepare_dataset import discover_daily_files, even_take, safe_group_name
+from compressor_ml.prepare_dataset import (
+    MachineSource,
+    discover_daily_files,
+    even_take,
+    prepare_dataset,
+    safe_group_name,
+)
 
 
 class PipelineTests(unittest.TestCase):
@@ -28,6 +35,63 @@ class PipelineTests(unittest.TestCase):
             source = Path(temporary) / "2026_07_12_cleaned.csv"
             source.touch()
             self.assertEqual(discover_daily_files(source), [source])
+
+    def test_prepared_dataset_skips_unreadable_source_with_audit_record(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            first = root / "MXA"
+            second = root / "MXB"
+            first.mkdir()
+            second.mkdir()
+            bad = first / "2026_08_01.txt"
+            good_a = first / "2026_08_02.txt"
+            good_b = second / "2026_08_02.txt"
+            for path in (bad, good_a, good_b):
+                path.touch()
+
+            def canonical(machine_id: str) -> pd.DataFrame:
+                stamps = pd.date_range("2026-08-02", periods=180, freq="s")
+                return pd.DataFrame(
+                    {
+                        "timestamp": stamps,
+                        "machine_id": machine_id,
+                        "module_id": 1,
+                        "global_status": "Run",
+                        "module_status": "On",
+                        "busy": 0,
+                        "sv": "Off",
+                        "hp1": 145.0,
+                        "lp1": 28.0,
+                        "hp2": 195.0,
+                        "lp2": 17.0,
+                        "valve": 80.0,
+                        "temphi": 90.0,
+                        "templo": -30.0,
+                    }
+                )
+
+            def fake_read(path: Path, machine_id: str) -> pd.DataFrame:
+                if Path(path) == bad:
+                    raise ValueError("No tabular header found")
+                return canonical(machine_id)
+
+            output = root / "prepared"
+            with patch("compressor_ml.prepare_dataset.read_handler_log", side_effect=fake_read):
+                manifest = prepare_dataset(
+                    [MachineSource("MXA", first), MachineSource("MXB", second)],
+                    [1],
+                    output,
+                    PipelineConfig(),
+                    "unit_full_v1",
+                )
+
+            skipped = [source for source in manifest["sources"] if source["ingest_status"] == "skipped"]
+            self.assertEqual(len(skipped), 1)
+            self.assertIn("No tabular header found", skipped[0]["ingest_error"])
+            quality = pd.read_csv(output / "data_quality_summary.csv")
+            skipped_quality = quality.loc[quality["source_status"].eq("skipped")]
+            self.assertEqual(len(skipped_quality), 1)
+            self.assertIn("No tabular header found", skipped_quality.iloc[0]["read_error"])
 
     def test_transition_and_sentinel_rows_are_excluded(self):
         stamps = pd.date_range("2026-01-01", periods=70, freq="s")

@@ -9,10 +9,12 @@ Raw machine logs, trained models, virtual environments, and generated analysis o
 ## Colab quick start
 
 1. Build the prepared dataset locally from the raw logs with the command below.
-2. Create `ht9046mx_colab_package.zip` containing the source and prepared bundle.
-3. Put the ZIP and `HT9046MX_Shared_Model_Colab.ipynb` in `MyDrive/Data Analysis`.
+2. Create `ht9046mx_colab_full_package.zip` containing the source and prepared bundle.
+3. Put `HT9046MX_Shared_Model_Colab.ipynb` in `MyDrive/Data Analysis`, then upload the package into Colab session storage at `/content`.
 4. Open the notebook in Google Colab.
 5. Select **Runtime → Change runtime type → T4 GPU** and run all cells.
+
+The notebook defaults to `USE_DRIVE = False` because DriveFS can be unavailable even for a signed-in Colab session. In this mode the trained adaptive runtime ZIP is downloaded automatically at the final cell. Set `USE_DRIVE = True` only when Drive mount is working and direct Drive persistence is preferred.
 
 Expected Google Drive layout:
 
@@ -20,7 +22,7 @@ Expected Google Drive layout:
 MyDrive/
 └── Data Analysis/
     ├── HT9046MX_Shared_Model_Colab.ipynb
-    └── ht9046mx_colab_package.zip
+    └── ht9046mx_colab_full_package.zip  # optional when USE_DRIVE=True
 ```
 
 Raw logs remain only on the local machine. They are not uploaded to GitHub or required by the training notebook.
@@ -53,7 +55,15 @@ Create the upload package after the dataset finishes:
 .\.venv\Scripts\python.exe scripts\build_colab_package.py
 ```
 
-For the bounded full dataset, replace each explicit representative file with its machine directory, use a new output directory such as `prepared_dataset\shared_full_v1`, add `--max-files-per-machine 7`, and increase `--max-windows-per-group` to `5000`. Then build a new ZIP and set `RUN_MODE = "full"` in the notebook.
+For the bounded full dataset, replace each explicit representative file with its machine directory, use a new immutable output directory such as `prepared_dataset\shared_full_v2`, set `--max-files-per-machine 10` (MX_007 contains three RTF reports that are audited and skipped), and increase `--max-windows-per-group` to `5000`. Then build a new ZIP and set `RUN_MODE = "full"` in the notebook.
+
+Build the full-only Colab package without duplicating the smoke dataset:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\build_colab_package.py `
+  --dataset-dir prepared_dataset\shared_full_v2 `
+  --output artifacts\ht9046mx_colab_full_package.zip
+```
 
 ## Data-backed safeguards
 
@@ -96,3 +106,16 @@ Only after reviewing the smoke output, install the scheduled cycle:
 ```
 
 Automatic approval applies only to bounded per-group calibration profiles. It does not approve shared-model retraining, fault diagnosis, or maintenance actions without maintenance-linked labels.
+
+## Offline multi-machine adaptive test (no MySQL)
+
+This test copies an adaptive seed to a temporary runtime, feeds eligible reference-like observations to one machine/module, advances the guarded shadow approvals, and proves that a second machine/module profile and every golden profile remain unchanged:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\offline_adaptive_multimachine_test.py `
+  --seed-dir artifacts\shared_lstm_colab_smoke\adaptive_seed `
+  --target-group MX017__M02 `
+  --control-group MX070__M02
+```
+
+It does not connect to MySQL, retrain the shared model, or claim measured fault accuracy.
