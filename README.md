@@ -2,6 +2,8 @@
 
 This code-only repository contains a Google Colab workflow for an **unlabelled, state-aware shared LSTM Autoencoder**. One model learns normalized temporal patterns from all handlers, while every `machine_id + module_id` keeps its own scaler and anomaly threshold.
 
+The repository also contains a guarded **adaptive scoring and calibration system**. It keeps the shared model, train-only scalers, and golden baselines immutable while allowing a bounded operational profile to advance through frozen replay, synthetic-regression checks, shadow observations, automatic approval, audit history, and rollback.
+
 Raw machine logs, trained models, virtual environments, and generated analysis outputs are intentionally excluded from GitHub.
 
 ## Colab quick start
@@ -22,6 +24,8 @@ MyDrive/
 ```
 
 Raw logs remain only on the local machine. They are not uploaded to GitHub or required by the training notebook.
+
+Cells 11–12 create `adaptive_seed` and `ht9046mx_adaptive_runtime_<mode>.zip` for continuous scoring on Windows. See [ADAPTIVE_SYSTEM.md](ADAPTIVE_SYSTEM.md) for the complete setup and safety contract.
 
 ## Build the prepared smoke dataset locally
 
@@ -46,8 +50,7 @@ The bundle stores unscaled `(60, 24)` windows with chronological 70/15/15 splits
 Create the upload package after the dataset finishes:
 
 ```powershell
-tar.exe -a -c -f artifacts\ht9046mx_colab_package.zip `
-  compressor_ml configs requirements.txt README.md prepared_dataset\shared_smoke_v2
+.\.venv\Scripts\python.exe scripts\build_colab_package.py
 ```
 
 For the bounded full dataset, replace each explicit representative file with its machine directory, use a new output directory such as `prepared_dataset\shared_full_v1`, add `--max-files-per-machine 7`, and increase `--max-windows-per-group` to `5000`. Then build a new ZIP and set `RUN_MODE = "full"` in the notebook.
@@ -75,3 +78,21 @@ python -m venv .venv
 ```
 
 Do not use a smoke artifact for maintenance decisions.
+
+## Adaptive scoring quick start
+
+After downloading and extracting the Colab adaptive runtime ZIP into `artifacts/shared_lstm_colab_smoke`:
+
+```powershell
+.\scripts\initialize_adaptive_runtime.ps1
+.\scripts\run_adaptive_cycle.ps1
+.\.venv\Scripts\python.exe -m compressor_ml.adaptive_runner status --runtime-dir adaptive_runtime
+```
+
+Only after reviewing the smoke output, install the scheduled cycle:
+
+```powershell
+.\scripts\install_adaptive_task.ps1 -IntervalMinutes 15
+```
+
+Automatic approval applies only to bounded per-group calibration profiles. It does not approve shared-model retraining, fault diagnosis, or maintenance actions without maintenance-linked labels.

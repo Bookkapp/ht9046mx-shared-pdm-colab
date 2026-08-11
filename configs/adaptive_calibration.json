@@ -1,0 +1,21 @@
+{
+  "min_candidate_windows": 200,
+  "min_candidate_days": 3,
+  "max_buffer_windows": 5000,
+  "eligibility_max_operational_risk": 0.5,
+  "eligibility_max_golden_risk": 0.8,
+  "golden_drift_weight": 0.5,
+  "adaptation_rate": 0.1,
+  "max_center_step_mad": 0.1,
+  "max_scale_change_fraction": 0.1,
+  "max_threshold_change_fraction": 0.1,
+  "covariance_shrinkage": 0.1,
+  "max_reference_alert_rate": 0.05,
+  "min_synthetic_detection_rate": 0.8,
+  "max_synthetic_detection_drop": 0.05,
+  "synthetic_shift_mad": 3.0,
+  "shadow_min_observations": 3,
+  "normal_risk_max": 0.5,
+  "watch_risk_max": 1.0,
+  "warning_risk_max": 1.5
+}
