@@ -1,4 +1,6 @@
 import unittest
+from pathlib import Path
+import tempfile
 
 import numpy as np
 import pandas as pd
@@ -8,9 +10,25 @@ from compressor_ml.config import PipelineConfig
 from compressor_ml.features import engineer_features
 from compressor_ml.preprocessing import validate_and_filter
 from compressor_ml.windowing import make_windows
+from compressor_ml.prepare_dataset import discover_daily_files, even_take, safe_group_name
 
 
 class PipelineTests(unittest.TestCase):
+    def test_prepared_dataset_helpers_are_deterministic(self):
+        windows = np.arange(20 * 2 * 3, dtype=np.float32).reshape(20, 2, 3)
+        metadata = pd.DataFrame({"timestamp": pd.date_range("2026-01-01", periods=20, freq="s")})
+        selected, selected_metadata = even_take(windows, metadata, 5)
+        self.assertEqual(selected.shape, (5, 2, 3))
+        self.assertEqual(selected_metadata.iloc[0]["timestamp"], metadata.iloc[0]["timestamp"])
+        self.assertEqual(selected_metadata.iloc[-1]["timestamp"], metadata.iloc[-1]["timestamp"])
+        self.assertEqual(safe_group_name("MX 007", 1), "MX_007__M01")
+
+    def test_daily_file_discovery_accepts_an_explicit_file(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            source = Path(temporary) / "2026_07_12_cleaned.csv"
+            source.touch()
+            self.assertEqual(discover_daily_files(source), [source])
+
     def test_transition_and_sentinel_rows_are_excluded(self):
         stamps = pd.date_range("2026-01-01", periods=70, freq="s")
         frame = pd.DataFrame({
