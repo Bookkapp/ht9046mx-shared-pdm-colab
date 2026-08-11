@@ -1,0 +1,31 @@
+# Local Python environment and caches
+.venv/
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+
+# Generated model and analysis outputs
+artifacts/
+analysis_output/
+analyze_handler_data.py
+
+# Raw HT-9046MX logs stay out of GitHub
+Clean Data MX12/
+Clean Data MX25/
+MX_007/
+MX017/
+MX057/
+MX070/
+*.csv
+*.txt
+*.zip
+*.tmp.*
+
+# Keep this project dependency manifest
+!requirements.txt
+
+# Editor and operating-system files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
