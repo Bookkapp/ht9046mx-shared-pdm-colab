@@ -105,7 +105,7 @@ Only after reviewing the smoke output, install the scheduled cycle:
 .\scripts\install_adaptive_task.ps1 -IntervalMinutes 15
 ```
 
-Automatic approval applies only to bounded per-group calibration profiles. It does not approve shared-model retraining, fault diagnosis, or maintenance actions without maintenance-linked labels.
+Automatic approval applies only to bounded per-group calibration profiles. It does not approve shared-model retraining, fault diagnosis, or maintenance actions without maintenance-linked labels. The synthetic regression canary is scaled beyond each machine/module's immutable golden feature threshold, so a group with a wide historical operating range is tested at comparable severity instead of using a fixed shift that may fall inside its learned baseline.
 
 ## Offline multi-machine adaptive test (no MySQL)
 
@@ -113,9 +113,9 @@ This test copies an adaptive seed to a temporary runtime, feeds eligible referen
 
 ```powershell
 .\.venv\Scripts\python.exe scripts\offline_adaptive_multimachine_test.py `
-  --seed-dir artifacts\shared_lstm_colab_smoke\adaptive_seed `
+  --seed-dir artifacts\shared_lstm_colab_full\adaptive_seed `
   --target-group MX017__M02 `
   --control-group MX070__M02
 ```
 
-It does not connect to MySQL, retrain the shared model, or claim measured fault accuracy.
+The verified full-run test should advance `MX017__M02` through `SHADOW`, `SHADOW`, and `AUTO_APPROVED`, while `MX070__M02`, every golden profile, the train-only scalers, and the shared model remain unchanged. It does not connect to MySQL, retrain the shared model, or claim measured fault accuracy.

@@ -326,6 +326,45 @@ def score_profile(
     }
 
 
+def _synthetic_guardrail_summaries(
+    champion: CalibrationProfile,
+    summaries: np.ndarray,
+    config: AdaptiveConfig,
+) -> np.ndarray:
+    """Create a deterministic canary beyond each champion's feature threshold.
+
+    A fixed MAD shift can be weaker than a group's learned p99 feature threshold
+    when the historical baseline contains wide operating modes.  The guardrail
+    must challenge every group at comparable severity, so each row is moved
+    away from the immutable golden center by the champion threshold plus the
+    configured MAD margin.  This remains a regression canary, not a simulated
+    physical fault or a labelled accuracy test.
+    """
+
+    synthetic = np.asarray(summaries, dtype=np.float64).copy()
+    if synthetic.ndim != 2 or len(synthetic) == 0:
+        raise ValueError("Synthetic guardrail needs non-empty 2D summaries")
+    sensor_count = min(7, synthetic.shape[1])
+    golden_center = np.asarray(champion.golden_center, dtype=np.float64)
+    golden_scale = np.maximum(
+        np.asarray(champion.golden_scale, dtype=np.float64), EPSILON
+    )
+    challenge_mad = float(champion.golden_feature_threshold) + float(
+        config.synthetic_shift_mad
+    )
+    for index in range(len(synthetic)):
+        feature_index = index % sensor_count
+        direction = (
+            1.0
+            if synthetic[index, feature_index] >= golden_center[feature_index]
+            else -1.0
+        )
+        synthetic[index, feature_index] = golden_center[feature_index] + (
+            direction * challenge_mad * golden_scale[feature_index]
+        )
+    return synthetic
+
+
 def _bounded_scalar(old: float, target: float, rate: float, fraction: float) -> float:
     blended = old + rate * (target - old)
     lower = old * (1.0 - fraction)
@@ -447,12 +486,7 @@ def validate_candidate(
     if recent_alert_rate > config.max_reference_alert_rate:
         reasons.append("candidate_does_not_fit_eligible_recent_data")
 
-    synthetic = reference_summaries.copy()
-    sensor_count = min(7, synthetic.shape[1])
-    golden_scale = np.asarray(champion.golden_scale, dtype=np.float64)
-    for index in range(len(synthetic)):
-        feature_index = index % sensor_count
-        synthetic[index, feature_index] += config.synthetic_shift_mad * golden_scale[feature_index]
+    synthetic = _synthetic_guardrail_summaries(champion, reference_summaries, config)
     champion_synthetic = score_profile(champion, synthetic, reference_errors, config)
     candidate_synthetic = score_profile(candidate, synthetic, reference_errors, config)
     champion_detection = float(np.mean(champion_synthetic["operational_risk"] >= 1.0))
@@ -729,14 +763,7 @@ class AdaptiveRuntime:
         reference = score_profile(champion, summaries, errors, self.config)
         reference_alert_rate = float(np.mean(reference["operational_risk"] >= 1.0))
 
-        synthetic = summaries.copy()
-        sensor_count = min(7, synthetic.shape[1])
-        golden_scale = np.asarray(champion.golden_scale, dtype=np.float64)
-        for index in range(len(synthetic)):
-            feature_index = index % sensor_count
-            synthetic[index, feature_index] += (
-                self.config.synthetic_shift_mad * golden_scale[feature_index]
-            )
+        synthetic = _synthetic_guardrail_summaries(champion, summaries, self.config)
         synthetic_result = score_profile(champion, synthetic, errors, self.config)
         synthetic_detection = float(
             np.mean(synthetic_result["operational_risk"] >= 1.0)

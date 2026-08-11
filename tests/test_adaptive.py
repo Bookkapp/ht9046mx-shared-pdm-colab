@@ -9,6 +9,7 @@ from compressor_ml.adaptive import (
     AdaptiveConfig,
     AdaptiveRuntime,
     CalibrationProfile,
+    _synthetic_guardrail_summaries,
     build_candidate_profile,
     build_reference_profile,
     score_profile,
@@ -68,6 +69,37 @@ class AdaptiveCalibrationTests(unittest.TestCase):
         self.assertLessEqual(
             threshold_change, self.config.max_threshold_change_fraction + 1e-8
         )
+
+    def test_synthetic_guardrail_scales_beyond_each_machine_threshold(self):
+        payload = asdict(self.profile)
+        payload.update(
+            {
+                "golden_feature_threshold": 100.0,
+                "adaptive_feature_threshold": 100.0,
+            }
+        )
+        wide_baseline_profile = CalibrationProfile(**payload)
+        config = AdaptiveConfig(
+            min_candidate_windows=20,
+            min_candidate_days=2,
+            max_buffer_windows=100,
+            min_synthetic_detection_rate=0.80,
+            synthetic_shift_mad=3.0,
+        )
+        summaries = window_summaries(self.windows[:20])
+        synthetic = _synthetic_guardrail_summaries(
+            wide_baseline_profile, summaries, config
+        )
+        result = score_profile(
+            wide_baseline_profile,
+            synthetic,
+            np.full(len(synthetic), 0.2, dtype=np.float32),
+            config,
+        )
+
+        detection_rate = float(np.mean(result["operational_risk"] >= 1.0))
+        self.assertGreaterEqual(detection_rate, config.min_synthetic_detection_rate)
+        self.assertTrue((result["golden_feature_deviation"] >= 103.0).all())
 
     def test_runtime_promotes_only_after_new_shadow_observation(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -17,6 +17,7 @@ from .adaptive import (
     AdaptiveRuntime,
     CalibrationBuffer,
     CalibrationProfile,
+    _synthetic_guardrail_summaries,
     build_reference_profile,
     score_profile,
     utc_now,
@@ -144,14 +145,9 @@ def bootstrap_from_prepared(
         frozen_errors = np.concatenate([validation_errors, test_errors])
         frozen_summaries = window_summaries(frozen_windows)
         frozen_result = score_profile(champion, frozen_summaries, frozen_errors, config)
-        synthetic_summaries = frozen_summaries.copy()
-        sensor_count = min(7, synthetic_summaries.shape[1])
-        golden_scale = np.asarray(champion.golden_scale, dtype=np.float64)
-        for index in range(len(synthetic_summaries)):
-            feature_index = index % sensor_count
-            synthetic_summaries[index, feature_index] += (
-                config.synthetic_shift_mad * golden_scale[feature_index]
-            )
+        synthetic_summaries = _synthetic_guardrail_summaries(
+            champion, frozen_summaries, config
+        )
         synthetic_result = score_profile(
             champion, synthetic_summaries, frozen_errors, config
         )
