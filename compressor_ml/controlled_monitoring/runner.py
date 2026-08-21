@@ -1,0 +1,258 @@
+from __future__ import annotations
+
+import argparse
+from dataclasses import dataclass
+from datetime import datetime, timezone
+import hashlib
+import json
+from pathlib import Path
+from typing import Any
+
+import pandas as pd
+
+from ..prepare_dataset import discover_daily_files
+from ..preprocessing import read_handler_log
+from .config import ControlledMonitoringConfig
+from .engine import ControlledMonitoringEngine
+from .fusion import PersistenceTracker
+from .lifecycle import BootstrapLifecycle, LifecycleState, ProfileRepository
+from .shadow import SharedLSTMShadow
+
+
+def _atomic_json(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_suffix(path.suffix + ".tmp")
+    temporary.write_text(json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8")
+    temporary.replace(path)
+
+
+@dataclass
+class ControlledSystemConfig:
+    policy_file: str
+    shared_model_artifact: str
+    runtime_dir: str
+    machine_sources: dict[str, str]
+    modules: list[int]
+    bootstrap_max_files_per_machine: int = 14
+    max_files_per_cycle: int = 10
+
+    @classmethod
+    def load(cls, path: str | Path) -> "ControlledSystemConfig":
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+        return cls(**payload)
+
+
+class FileRegistry:
+    def __init__(self, path: str | Path):
+        self.path = Path(path)
+        self.entries = (
+            json.loads(self.path.read_text(encoding="utf-8"))
+            if self.path.exists()
+            else {}
+        )
+
+    @staticmethod
+    def signature(path: Path) -> str:
+        stat = path.stat()
+        text = f"{path.resolve()}|{stat.st_size}|{stat.st_mtime_ns}"
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+    def pending(self, paths: list[Path], limit: int) -> list[Path]:
+        result = [path for path in paths if self.entries.get(str(path.resolve())) != self.signature(path)]
+        return result[-limit:]
+
+    def mark(self, path: Path) -> None:
+        self.entries[str(path.resolve())] = self.signature(path)
+
+    def save(self) -> None:
+        _atomic_json(self.path, self.entries)
+
+
+class ControlledRuntime:
+    def __init__(self, system_config_path: str | Path):
+        self.project_root = Path.cwd()
+        self.system_config_path = Path(system_config_path)
+        self.system = ControlledSystemConfig.load(self.system_config_path)
+        self.policy = ControlledMonitoringConfig.load(self.system.policy_file)
+        self.runtime_dir = Path(self.system.runtime_dir)
+        self.runtime_dir.mkdir(parents=True, exist_ok=True)
+        self.repository = ProfileRepository(self.runtime_dir / "profiles")
+        self.shadow = SharedLSTMShadow(self.system.shared_model_artifact, config=self.policy)
+        self.lifecycle = BootstrapLifecycle(self.repository, self.policy, self.shadow)
+        self.persistence = PersistenceTracker(
+            self.policy, self.runtime_dir / "state" / "persistence.json"
+        )
+        self.engine = ControlledMonitoringEngine(
+            self.repository,
+            self.policy,
+            self.shadow,
+            persistence=self.persistence,
+        )
+        self.registry = FileRegistry(self.runtime_dir / "state" / "processed_files.json")
+
+    def _files(self, machine_id: str, *, bootstrap: bool = False) -> list[Path]:
+        source = Path(self.system.machine_sources[machine_id])
+        maximum = self.system.bootstrap_max_files_per_machine if bootstrap else None
+        return discover_daily_files(source, max_files=maximum)
+
+    def _load(self, machine_id: str, files: list[Path]) -> pd.DataFrame:
+        frames: list[pd.DataFrame] = []
+        errors: list[dict[str, str]] = []
+        for path in files:
+            try:
+                frames.append(read_handler_log(path, machine_id))
+            except Exception as error:
+                errors.append({"source_file": str(path), "error": f"{type(error).__name__}: {error}"})
+        if errors:
+            error_path = self.runtime_dir / "monitoring" / "source_errors.jsonl"
+            error_path.parent.mkdir(parents=True, exist_ok=True)
+            with error_path.open("a", encoding="utf-8") as handle:
+                for error in errors:
+                    handle.write(json.dumps(error, ensure_ascii=False) + "\n")
+        if not frames:
+            return pd.DataFrame()
+        frame = pd.concat(frames, ignore_index=True)
+        return frame.loc[frame["module_id"].isin(self.system.modules)].copy()
+
+    def bootstrap_machine(self, machine_id: str) -> dict[str, Any]:
+        bootstrap_files = self._files(machine_id, bootstrap=True)
+        raw = self._load(machine_id, bootstrap_files)
+        if raw.empty:
+            return self.repository.transition(
+                machine_id,
+                LifecycleState.COLLECTING_DATA,
+                reason="no_readable_source_data",
+            )
+        result = self.lifecycle.bootstrap(machine_id, raw)
+        if result.get("state") == LifecycleState.CANDIDATE_PROFILE_READY.value:
+            result = self.lifecycle.begin_shadow(machine_id)
+            # Shadow validation must use future/unseen files, never the same
+            # history that selected and fitted this candidate. Mark every file
+            # currently visible for this machine as the bootstrap boundary.
+            for path in self._files(machine_id):
+                self.registry.mark(path)
+            self.registry.save()
+        return result
+
+    def _append_predictions(self, machine_id: str, frame: pd.DataFrame) -> None:
+        if frame.empty:
+            return
+        destination = self.runtime_dir / "predictions" / f"{machine_id}.jsonl"
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        with destination.open("a", encoding="utf-8") as handle:
+            for record in frame.to_dict(orient="records"):
+                handle.write(json.dumps(record, ensure_ascii=False, default=str) + "\n")
+
+    def cycle_machine(self, machine_id: str) -> dict[str, Any]:
+        lifecycle = self.repository.read_lifecycle(machine_id)
+        state = lifecycle.get("state")
+        if state == LifecycleState.REJECTED.value:
+            return {
+                "machine_id": machine_id,
+                "state": state,
+                "files": 0,
+                "windows": 0,
+                "reason": "candidate_rejected_requires_new_bootstrap",
+            }
+        if state in {LifecycleState.COLLECTING_DATA.value, LifecycleState.LEARNING.value}:
+            return self.bootstrap_machine(machine_id)
+        files = self.registry.pending(self._files(machine_id), self.system.max_files_per_cycle)
+        if not files:
+            return {"machine_id": machine_id, "state": state, "files": 0, "windows": 0}
+        profile_source = (
+            "active" if state == LifecycleState.ACTIVE.value else "candidate"
+        )
+        frames: list[pd.DataFrame] = []
+        for path in files:
+            raw = self._load(machine_id, [path])
+            if raw.empty:
+                self.registry.mark(path)
+                continue
+            scored = self.engine.score_frame(raw, profile_source=profile_source)
+            self._append_predictions(machine_id, scored)
+            frames.append(scored)
+            self.registry.mark(path)
+        self.registry.save()
+        combined = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame()
+        if state == LifecycleState.SHADOW_VALIDATION.value and not combined.empty:
+            lifecycle = self.lifecycle.record_shadow(machine_id, combined)
+        return {
+            "machine_id": machine_id,
+            "state": lifecycle.get("state"),
+            "files": len(files),
+            "windows": int(len(combined)),
+            "review_levels": combined["review_level"].value_counts().to_dict() if not combined.empty else {},
+        }
+
+    def cycle(self) -> dict[str, Any]:
+        started = datetime.now(timezone.utc).isoformat()
+        results: list[dict[str, Any]] = []
+        for machine_id in self.system.machine_sources:
+            try:
+                results.append(self.cycle_machine(machine_id))
+            except Exception as error:
+                results.append(
+                    {
+                        "machine_id": machine_id,
+                        "error": f"{type(error).__name__}: {error}",
+                    }
+                )
+        summary = {
+            "started_at_utc": started,
+            "completed_at_utc": datetime.now(timezone.utc).isoformat(),
+            "policy_version": self.policy.policy_version,
+            "shared_model_artifact": self.system.shared_model_artifact,
+            "machines": results,
+        }
+        _atomic_json(self.runtime_dir / "latest_cycle.json", summary)
+        return summary
+
+
+def _parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="Controlled COM2 + Shared-LSTM condition monitoring")
+    parser.add_argument("--system-config", default="configs/controlled_condition_monitoring.json")
+    commands = parser.add_subparsers(dest="command", required=True)
+    commands.add_parser("cycle")
+    bootstrap = commands.add_parser("bootstrap")
+    bootstrap.add_argument("--machine-id")
+    status = commands.add_parser("status")
+    status.add_argument("--machine-id")
+    approve = commands.add_parser("approve")
+    approve.add_argument("--machine-id", required=True)
+    approve.add_argument("--approved-by", required=True)
+    reject = commands.add_parser("reject")
+    reject.add_argument("--machine-id", required=True)
+    reject.add_argument("--rejected-by", required=True)
+    reject.add_argument("--reason", required=True)
+    return parser
+
+
+def main() -> None:
+    args = _parser().parse_args()
+    system = ControlledSystemConfig.load(args.system_config)
+    repository = ProfileRepository(Path(system.runtime_dir) / "profiles")
+    if args.command == "status":
+        machines = [args.machine_id] if args.machine_id else list(system.machine_sources)
+        result = {machine: repository.read_lifecycle(machine) for machine in machines}
+    elif args.command == "approve":
+        result = repository.approve(args.machine_id, approved_by=args.approved_by)
+    elif args.command == "reject":
+        result = repository.reject(
+            args.machine_id, rejected_by=args.rejected_by, reason=args.reason
+        )
+    else:
+        # TensorFlow and the immutable Shared LSTM are needed only for commands
+        # that actually score data. Administrative commands stay lightweight.
+        runtime = ControlledRuntime(args.system_config)
+    if args.command == "cycle":
+        result = runtime.cycle()
+    elif args.command == "bootstrap":
+        machines = [args.machine_id] if args.machine_id else list(runtime.system.machine_sources)
+        result = {machine: runtime.bootstrap_machine(machine) for machine in machines}
+    elif args.command not in {"status", "approve", "reject"}:
+        raise RuntimeError(f"Unknown command: {args.command}")
+    print(json.dumps(result, indent=2, ensure_ascii=False, default=str))
+
+
+if __name__ == "__main__":
+    main()

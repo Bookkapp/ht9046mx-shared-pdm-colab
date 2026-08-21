@@ -1,0 +1,254 @@
+{
+  "MX12__M01": {
+    "machine_id": "MX12",
+    "module_id": 1,
+    "percentile": 99.0,
+    "value": 0.28873535990715027
+  },
+  "MX12__M02": {
+    "machine_id": "MX12",
+    "module_id": 2,
+    "percentile": 99.0,
+    "value": 0.5201102495193481
+  },
+  "MX12__M03": {
+    "machine_id": "MX12",
+    "module_id": 3,
+    "percentile": 99.0,
+    "value": 0.3566456735134125
+  },
+  "MX12__M04": {
+    "machine_id": "MX12",
+    "module_id": 4,
+    "percentile": 99.0,
+    "value": 0.35846400260925293
+  },
+  "MX12__M05": {
+    "machine_id": "MX12",
+    "module_id": 5,
+    "percentile": 99.0,
+    "value": 0.46699434518814087
+  },
+  "MX12__M06": {
+    "machine_id": "MX12",
+    "module_id": 6,
+    "percentile": 99.0,
+    "value": 0.3088294565677643
+  },
+  "MX12__M08": {
+    "machine_id": "MX12",
+    "module_id": 8,
+    "percentile": 99.0,
+    "value": 0.21502217650413513
+  },
+  "MX25__M01": {
+    "machine_id": "MX25",
+    "module_id": 1,
+    "percentile": 99.0,
+    "value": 0.815722644329071
+  },
+  "MX25__M02": {
+    "machine_id": "MX25",
+    "module_id": 2,
+    "percentile": 99.0,
+    "value": 0.8884732127189636
+  },
+  "MX25__M03": {
+    "machine_id": "MX25",
+    "module_id": 3,
+    "percentile": 99.0,
+    "value": 0.2017965316772461
+  },
+  "MX25__M04": {
+    "machine_id": "MX25",
+    "module_id": 4,
+    "percentile": 99.0,
+    "value": 0.7549735307693481
+  },
+  "MX25__M05": {
+    "machine_id": "MX25",
+    "module_id": 5,
+    "percentile": 99.0,
+    "value": 0.4632067382335663
+  },
+  "MX25__M06": {
+    "machine_id": "MX25",
+    "module_id": 6,
+    "percentile": 99.0,
+    "value": 0.08942735195159912
+  },
+  "MX25__M08": {
+    "machine_id": "MX25",
+    "module_id": 8,
+    "percentile": 99.0,
+    "value": 0.09062985330820084
+  },
+  "MX007__M01": {
+    "machine_id": "MX007",
+    "module_id": 1,
+    "percentile": 99.0,
+    "value": 0.1959698647260666
+  },
+  "MX007__M02": {
+    "machine_id": "MX007",
+    "module_id": 2,
+    "percentile": 99.0,
+    "value": 0.16468492150306702
+  },
+  "MX007__M03": {
+    "machine_id": "MX007",
+    "module_id": 3,
+    "percentile": 99.0,
+    "value": 0.23235125839710236
+  },
+  "MX007__M04": {
+    "machine_id": "MX007",
+    "module_id": 4,
+    "percentile": 99.0,
+    "value": 0.1378592997789383
+  },
+  "MX007__M05": {
+    "machine_id": "MX007",
+    "module_id": 5,
+    "percentile": 99.0,
+    "value": 0.1323254257440567
+  },
+  "MX007__M06": {
+    "machine_id": "MX007",
+    "module_id": 6,
+    "percentile": 99.0,
+    "value": 0.17329742014408112
+  },
+  "MX007__M08": {
+    "machine_id": "MX007",
+    "module_id": 8,
+    "percentile": 99.0,
+    "value": 0.20272371172904968
+  },
+  "MX017__M01": {
+    "machine_id": "MX017",
+    "module_id": 1,
+    "percentile": 99.0,
+    "value": 0.494191974401474
+  },
+  "MX017__M02": {
+    "machine_id": "MX017",
+    "module_id": 2,
+    "percentile": 99.0,
+    "value": 0.7436696887016296
+  },
+  "MX017__M03": {
+    "machine_id": "MX017",
+    "module_id": 3,
+    "percentile": 99.0,
+    "value": 0.9738411903381348
+  },
+  "MX017__M04": {
+    "machine_id": "MX017",
+    "module_id": 4,
+    "percentile": 99.0,
+    "value": 0.8267020583152771
+  },
+  "MX017__M05": {
+    "machine_id": "MX017",
+    "module_id": 5,
+    "percentile": 99.0,
+    "value": 0.208446204662323
+  },
+  "MX017__M06": {
+    "machine_id": "MX017",
+    "module_id": 6,
+    "percentile": 99.0,
+    "value": 0.18282251060009003
+  },
+  "MX017__M08": {
+    "machine_id": "MX017",
+    "module_id": 8,
+    "percentile": 99.0,
+    "value": 0.22890576720237732
+  },
+  "MX057__M01": {
+    "machine_id": "MX057",
+    "module_id": 1,
+    "percentile": 99.0,
+    "value": 0.13914303481578827
+  },
+  "MX057__M02": {
+    "machine_id": "MX057",
+    "module_id": 2,
+    "percentile": 99.0,
+    "value": 0.2749229967594147
+  },
+  "MX057__M03": {
+    "machine_id": "MX057",
+    "module_id": 3,
+    "percentile": 99.0,
+    "value": 0.1764460653066635
+  },
+  "MX057__M04": {
+    "machine_id": "MX057",
+    "module_id": 4,
+    "percentile": 99.0,
+    "value": 0.14078564941883087
+  },
+  "MX057__M05": {
+    "machine_id": "MX057",
+    "module_id": 5,
+    "percentile": 99.0,
+    "value": 0.19850441813468933
+  },
+  "MX057__M06": {
+    "machine_id": "MX057",
+    "module_id": 6,
+    "percentile": 99.0,
+    "value": 0.2393943816423416
+  },
+  "MX057__M08": {
+    "machine_id": "MX057",
+    "module_id": 8,
+    "percentile": 99.0,
+    "value": 0.15370877087116241
+  },
+  "MX070__M01": {
+    "machine_id": "MX070",
+    "module_id": 1,
+    "percentile": 99.0,
+    "value": 0.10726820677518845
+  },
+  "MX070__M02": {
+    "machine_id": "MX070",
+    "module_id": 2,
+    "percentile": 99.0,
+    "value": 0.14708156883716583
+  },
+  "MX070__M03": {
+    "machine_id": "MX070",
+    "module_id": 3,
+    "percentile": 99.0,
+    "value": 0.1363571435213089
+  },
+  "MX070__M04": {
+    "machine_id": "MX070",
+    "module_id": 4,
+    "percentile": 99.0,
+    "value": 0.11525148153305054
+  },
+  "MX070__M05": {
+    "machine_id": "MX070",
+    "module_id": 5,
+    "percentile": 99.0,
+    "value": 0.14221449196338654
+  },
+  "MX070__M06": {
+    "machine_id": "MX070",
+    "module_id": 6,
+    "percentile": 99.0,
+    "value": 0.14031808078289032
+  },
+  "MX070__M08": {
+    "machine_id": "MX070",
+    "module_id": 8,
+    "percentile": 99.0,
+    "value": 0.33106905221939087
+  }
+}

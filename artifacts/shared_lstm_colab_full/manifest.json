@@ -1,0 +1,538 @@
+{
+  "model_type": "shared_lstm_autoencoder_with_per_group_calibration",
+  "model_version": "shared_lstm_full_v1",
+  "created_at_utc": "2026-08-11T07:29:00.657763+00:00",
+  "run_mode": "full",
+  "groups": [
+    "MX12__M01",
+    "MX12__M02",
+    "MX12__M03",
+    "MX12__M04",
+    "MX12__M05",
+    "MX12__M06",
+    "MX12__M08",
+    "MX25__M01",
+    "MX25__M02",
+    "MX25__M03",
+    "MX25__M04",
+    "MX25__M05",
+    "MX25__M06",
+    "MX25__M08",
+    "MX007__M01",
+    "MX007__M02",
+    "MX007__M03",
+    "MX007__M04",
+    "MX007__M05",
+    "MX007__M06",
+    "MX007__M08",
+    "MX017__M01",
+    "MX017__M02",
+    "MX017__M03",
+    "MX017__M04",
+    "MX017__M05",
+    "MX017__M06",
+    "MX017__M08",
+    "MX057__M01",
+    "MX057__M02",
+    "MX057__M03",
+    "MX057__M04",
+    "MX057__M05",
+    "MX057__M06",
+    "MX057__M08",
+    "MX070__M01",
+    "MX070__M02",
+    "MX070__M03",
+    "MX070__M04",
+    "MX070__M05",
+    "MX070__M06",
+    "MX070__M08"
+  ],
+  "prepared_dataset_version": "shared_full_v2",
+  "prepared_dataset_format": "state_cleaned_unscaled_windows_v1",
+  "source_files": [
+    {
+      "machine_id": "MX12",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\Clean Data MX12\\2026_07\\2026_07_04_cleaned.csv",
+      "size_bytes": 31946406,
+      "modified_utc": "2026-07-13T08:58:58+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX12",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\Clean Data MX12\\2026_07\\2026_07_05_cleaned.csv",
+      "size_bytes": 31969607,
+      "modified_utc": "2026-07-13T08:59:00+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX12",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\Clean Data MX12\\2026_07\\2026_07_06_cleaned.csv",
+      "size_bytes": 31943347,
+      "modified_utc": "2026-07-13T08:59:02+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX12",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\Clean Data MX12\\2026_07\\2026_07_07_cleaned.csv",
+      "size_bytes": 31947836,
+      "modified_utc": "2026-07-13T08:59:06+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX12",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\Clean Data MX12\\2026_07\\2026_07_08_cleaned.csv",
+      "size_bytes": 31937230,
+      "modified_utc": "2026-07-13T08:59:10+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX12",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\Clean Data MX12\\2026_07\\2026_07_09_cleaned.csv",
+      "size_bytes": 31940141,
+      "modified_utc": "2026-07-13T08:59:14+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX12",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\Clean Data MX12\\2026_07\\2026_07_10_cleaned.csv",
+      "size_bytes": 31903291,
+      "modified_utc": "2026-07-13T08:59:18+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX12",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\Clean Data MX12\\2026_07\\2026_07_11_cleaned.csv",
+      "size_bytes": 32100791,
+      "modified_utc": "2026-07-13T08:59:22+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX12",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\Clean Data MX12\\2026_07\\2026_07_12_cleaned.csv",
+      "size_bytes": 31949890,
+      "modified_utc": "2026-07-13T08:59:24+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX12",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\Clean Data MX12\\2026_07\\2026_07_13_cleaned.csv",
+      "size_bytes": 15311895,
+      "modified_utc": "2026-07-13T08:59:24+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX25",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\Clean Data MX25\\2026_07\\2026_07_04_cleaned.csv",
+      "size_bytes": 32136262,
+      "modified_utc": "2026-07-13T08:54:52+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX25",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\Clean Data MX25\\2026_07\\2026_07_05_cleaned.csv",
+      "size_bytes": 31924408,
+      "modified_utc": "2026-07-13T08:54:54+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX25",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\Clean Data MX25\\2026_07\\2026_07_06_cleaned.csv",
+      "size_bytes": 31425069,
+      "modified_utc": "2026-07-13T08:54:58+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX25",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\Clean Data MX25\\2026_07\\2026_07_07_cleaned.csv",
+      "size_bytes": 30399375,
+      "modified_utc": "2026-07-13T08:55:02+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX25",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\Clean Data MX25\\2026_07\\2026_07_08_cleaned.csv",
+      "size_bytes": 30397906,
+      "modified_utc": "2026-07-13T08:55:04+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX25",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\Clean Data MX25\\2026_07\\2026_07_09_cleaned.csv",
+      "size_bytes": 30388480,
+      "modified_utc": "2026-07-13T08:55:06+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX25",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\Clean Data MX25\\2026_07\\2026_07_10_cleaned.csv",
+      "size_bytes": 30383593,
+      "modified_utc": "2026-07-13T08:55:08+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX25",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\Clean Data MX25\\2026_07\\2026_07_11_cleaned.csv",
+      "size_bytes": 30540072,
+      "modified_utc": "2026-07-13T08:55:10+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX25",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\Clean Data MX25\\2026_07\\2026_07_12_cleaned.csv",
+      "size_bytes": 31234258,
+      "modified_utc": "2026-07-13T08:55:12+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX25",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\Clean Data MX25\\2026_07\\2026_07_13_cleaned.csv",
+      "size_bytes": 17452358,
+      "modified_utc": "2026-07-13T08:55:12+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX007",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX_007\\2026_06_26_clean.csv",
+      "size_bytes": 31906902,
+      "modified_utc": "2026-07-06T07:24:36.571388+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX007",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX_007\\2026_06_27_clean.csv",
+      "size_bytes": 32714888,
+      "modified_utc": "2026-07-06T07:25:49.884219+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX007",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX_007\\2026_06_28_clean.csv",
+      "size_bytes": 32828667,
+      "modified_utc": "2026-07-06T07:27:02.937977+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX007",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX_007\\2026_06_29_10_31_42_PM.txt",
+      "size_bytes": 2703,
+      "modified_utc": "2026-06-29T03:31:42+00:00",
+      "ingest_status": "skipped",
+      "ingest_error": "ValueError: No tabular header found in MX_007\\2026_06_29_10_31_42_PM.txt"
+    },
+    {
+      "machine_id": "MX007",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX_007\\2026_06_29_11_26_02_PM.txt",
+      "size_bytes": 2789,
+      "modified_utc": "2026-06-29T04:26:02+00:00",
+      "ingest_status": "skipped",
+      "ingest_error": "ValueError: No tabular header found in MX_007\\2026_06_29_11_26_02_PM.txt"
+    },
+    {
+      "machine_id": "MX007",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX_007\\2026_06_29_14_04_38_PM.txt",
+      "size_bytes": 2779,
+      "modified_utc": "2026-06-29T07:04:38+00:00",
+      "ingest_status": "skipped",
+      "ingest_error": "ValueError: No tabular header found in MX_007\\2026_06_29_14_04_38_PM.txt"
+    },
+    {
+      "machine_id": "MX007",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX_007\\2026_06_29_clean.csv",
+      "size_bytes": 32866562,
+      "modified_utc": "2026-07-06T07:28:16.324809+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX007",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX_007\\2026_06_30_clean.csv",
+      "size_bytes": 32633237,
+      "modified_utc": "2026-07-06T07:29:35.243768+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX007",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX_007\\2026_07_01_clean.csv",
+      "size_bytes": 31946788,
+      "modified_utc": "2026-07-06T07:30:48.696743+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX007",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX_007\\2026_07_02_clean.csv",
+      "size_bytes": 14706615,
+      "modified_utc": "2026-07-06T07:31:24.508719+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX017",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX017\\2026_07_31.txt",
+      "size_bytes": 38585957,
+      "modified_utc": "2026-08-10T07:02:14.358989+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX017",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX017\\2026_08_01.txt",
+      "size_bytes": 38597726,
+      "modified_utc": "2026-08-10T07:02:06.110259+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX017",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX017\\2026_08_02.txt",
+      "size_bytes": 38592438,
+      "modified_utc": "2026-08-10T07:02:11.028238+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX017",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX017\\2026_08_03.txt",
+      "size_bytes": 38631672,
+      "modified_utc": "2026-08-10T07:02:13.713385+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX017",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX017\\2026_08_04.txt",
+      "size_bytes": 38613488,
+      "modified_utc": "2026-08-10T07:02:05.544032+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX017",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX017\\2026_08_05.txt",
+      "size_bytes": 38521422,
+      "modified_utc": "2026-08-10T07:02:13.286852+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX017",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX017\\2026_08_06.txt",
+      "size_bytes": 38289738,
+      "modified_utc": "2026-08-10T07:02:07.754246+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX017",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX017\\2026_08_07.txt",
+      "size_bytes": 38489259,
+      "modified_utc": "2026-08-10T07:02:09.741690+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX017",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX017\\2026_08_08.txt",
+      "size_bytes": 38568841,
+      "modified_utc": "2026-08-10T07:02:13.923079+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX017",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX017\\2026_08_09.txt",
+      "size_bytes": 38573218,
+      "modified_utc": "2026-08-10T07:02:09.000609+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX057",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX057\\2026_08\\2026_08_01.txt",
+      "size_bytes": 37861936,
+      "modified_utc": "2026-08-10T07:02:33.967880+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX057",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX057\\2026_08\\2026_08_02.txt",
+      "size_bytes": 36948253,
+      "modified_utc": "2026-08-10T07:02:32.039834+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX057",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX057\\2026_08\\2026_08_03.txt",
+      "size_bytes": 36788868,
+      "modified_utc": "2026-08-10T07:02:31.801783+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX057",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX057\\2026_08\\2026_08_04.txt",
+      "size_bytes": 36788675,
+      "modified_utc": "2026-08-10T07:02:32.417928+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX057",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX057\\2026_08\\2026_08_05.txt",
+      "size_bytes": 36788189,
+      "modified_utc": "2026-08-10T07:02:33.450516+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX057",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX057\\2026_08\\2026_08_06.txt",
+      "size_bytes": 36786698,
+      "modified_utc": "2026-08-10T07:02:32.912339+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX057",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX057\\2026_08\\2026_08_07.txt",
+      "size_bytes": 37398881,
+      "modified_utc": "2026-08-10T07:02:33.163909+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX057",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX057\\2026_08\\2026_08_08.txt",
+      "size_bytes": 37829210,
+      "modified_utc": "2026-08-10T07:02:33.685843+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX057",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX057\\2026_08\\2026_08_09.txt",
+      "size_bytes": 37764632,
+      "modified_utc": "2026-08-10T07:02:32.642769+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX057",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX057\\2026_08\\2026_08_10.txt",
+      "size_bytes": 21176240,
+      "modified_utc": "2026-08-10T07:02:32.177376+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX070",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX070\\2026_07\\2026_07_31.txt",
+      "size_bytes": 37904996,
+      "modified_utc": "2026-08-10T07:01:50.294867+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX070",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX070\\2026_08\\2026_08_01.txt",
+      "size_bytes": 37915140,
+      "modified_utc": "2026-08-10T07:01:47.718467+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX070",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX070\\2026_08\\2026_08_02.txt",
+      "size_bytes": 37914585,
+      "modified_utc": "2026-08-10T07:01:48.259833+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX070",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX070\\2026_08\\2026_08_03.txt",
+      "size_bytes": 37911945,
+      "modified_utc": "2026-08-10T07:01:47.982032+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX070",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX070\\2026_08\\2026_08_04.txt",
+      "size_bytes": 37865826,
+      "modified_utc": "2026-08-10T07:01:47.455919+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX070",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX070\\2026_08\\2026_08_05.txt",
+      "size_bytes": 37806468,
+      "modified_utc": "2026-08-10T07:01:48.509449+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX070",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX070\\2026_08\\2026_08_06.txt",
+      "size_bytes": 37713641,
+      "modified_utc": "2026-08-10T07:01:48.918777+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX070",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX070\\2026_08\\2026_08_07.txt",
+      "size_bytes": 37866931,
+      "modified_utc": "2026-08-10T07:01:49.107691+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX070",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX070\\2026_08\\2026_08_08.txt",
+      "size_bytes": 37942387,
+      "modified_utc": "2026-08-10T07:01:48.708103+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    },
+    {
+      "machine_id": "MX070",
+      "path": "C:\\Users\\Book\\OneDrive\\เดสก์ท็อป\\Data Analysis\\MX070\\2026_08\\2026_08_09.txt",
+      "size_bytes": 37936495,
+      "modified_utc": "2026-08-10T07:01:47.226852+00:00",
+      "ingest_status": "loaded",
+      "ingest_error": null
+    }
+  ],
+  "epochs_completed": 30,
+  "final_loss": 0.11727704107761383,
+  "final_validation_loss": 0.13408540189266205,
+  "threshold_method": "per_group_validation_p99"
+}

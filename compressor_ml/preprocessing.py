@@ -29,7 +29,11 @@ def _header_row(path: Path) -> int:
     raise ValueError(f"No tabular header found in {path}")
 
 
-def read_handler_log(path: str | Path, machine_id: str) -> pd.DataFrame:
+def read_handler_log(
+    path: str | Path,
+    machine_id: str,
+    module_ids: Iterable[int] | None = None,
+) -> pd.DataFrame:
     """Read one handler-day export and return a canonical long-format table."""
     source = Path(path)
     frame = pd.read_csv(source, skiprows=_header_row(source), skipinitialspace=True)
@@ -38,8 +42,13 @@ def read_handler_log(path: str | Path, machine_id: str) -> pd.DataFrame:
         raise ValueError(f"Time column missing from {source}")
     day = frame["Date"].astype(str) if "Date" in frame else _date_from_path(source)
     stamp = pd.to_datetime(day.astype(str) + " " + frame["Time"].astype(str).str.strip(), errors="coerce") if isinstance(day, pd.Series) else pd.to_datetime(day + " " + frame["Time"].astype(str).str.strip(), errors="coerce")
+    selected_modules = tuple(range(1, 9)) if module_ids is None else tuple(
+        sorted(set(int(value) for value in module_ids))
+    )
+    if not selected_modules or any(value < 1 or value > 8 for value in selected_modules):
+        raise ValueError("module_ids must contain values between 1 and 8")
     rows: list[pd.DataFrame] = []
-    for module_id in range(1, 9):
+    for module_id in selected_modules:
         data: dict[str, pd.Series | int | str] = {
             "timestamp": stamp,
             "machine_id": machine_id,

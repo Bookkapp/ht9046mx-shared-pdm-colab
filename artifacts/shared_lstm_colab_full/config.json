@@ -1,0 +1,58 @@
+{
+  "sampling_interval_sec": 1,
+  "max_interpolation_gap_sec": 5,
+  "window_size_sec": 60,
+  "step_size_sec": 5,
+  "excluded_modules": [
+    7
+  ],
+  "transition_states": [
+    "ChangeValve",
+    "AdjustValve",
+    "MValveHome"
+  ],
+  "normal_status": "On",
+  "scaler": "standard",
+  "threshold_percentile": 99.0,
+  "health_smoothing_windows": 12,
+  "normal_min": 80.0,
+  "watch_min": 60.0,
+  "warning_min": 40.0,
+  "encoder_units": [
+    64,
+    32
+  ],
+  "decoder_units": [
+    32,
+    64
+  ],
+  "loss": "mae",
+  "epochs": 30,
+  "batch_size": 128,
+  "feature_columns": [
+    "hp1",
+    "lp1",
+    "hp2",
+    "lp2",
+    "valve",
+    "temphi",
+    "templo",
+    "hp_gap_1",
+    "hp_gap_2",
+    "hp_lp_ratio_1",
+    "hp_lp_ratio_2",
+    "delta_hp1",
+    "delta_lp1",
+    "delta_hp2",
+    "delta_lp2",
+    "delta_valve",
+    "hp1_mean_60",
+    "hp1_std_60",
+    "hp2_mean_60",
+    "hp2_std_60",
+    "lp2_mean_60",
+    "lp2_std_60",
+    "templo_mean_60",
+    "templo_std_60"
+  ]
+}

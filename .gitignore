@@ -5,7 +5,7 @@ __pycache__/
 .ipynb_checkpoints/
 
 # Generated model and analysis outputs
-artifacts/
+artifacts/*
 analysis_output/
 analyze_handler_data.py
 prepared_dataset/
@@ -22,6 +22,22 @@ MX070/
 *.txt
 *.zip
 *.tmp.*
+*.bak
+
+# Deploy the immutable production model with the application. Other generated
+# training artifacts remain ignored.
+!artifacts/shared_lstm_colab_full/
+artifacts/shared_lstm_colab_full/*
+!artifacts/shared_lstm_colab_full/shared_model.keras
+!artifacts/shared_lstm_colab_full/manifest.json
+!artifacts/shared_lstm_colab_full/thresholds.json
+!artifacts/shared_lstm_colab_full/group_metrics.csv
+!artifacts/shared_lstm_colab_full/config.json
+!artifacts/shared_lstm_colab_full/scalers/
+!artifacts/shared_lstm_colab_full/scalers/**
+
+# Profiles, predictions, scheduler logs, and dashboard caches are server state.
+controlled_runtime/
 
 # Keep this project dependency manifest
 !requirements.txt

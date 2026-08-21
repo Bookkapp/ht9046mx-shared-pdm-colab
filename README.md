@@ -1,6 +1,19 @@
-# HT-9046MX Shared Predictive-Maintenance Model
+# HT-9046MX Controlled Hybrid Condition Monitoring
 
-This code-only repository contains a Google Colab workflow for an **unlabelled, state-aware shared LSTM Autoencoder**. One model learns normalized temporal patterns from all handlers, while every `machine_id + module_id` keeps its own scaler and anomaly threshold.
+The production-candidate path is now **Controlled Hybrid v1**: an explainable
+COM2 detector is the primary decision path, while the immutable 30-epoch Shared
+LSTM (`shared_lstm_full_v1`) supplies independent shadow evidence and helps
+select clean bootstrap history. A new machine can learn a candidate profile
+automatically, but activation always stops at `APPROVAL_REQUIRED`; only a named
+human approver can create an `ACTIVE_FROZEN` profile.
+
+Start with [CONTROLLED_HYBRID_SYSTEM.md](CONTROLLED_HYBRID_SYSTEM.md). The older
+`adaptive_runner` flow remains in the repository for reproducibility and
+comparison, but it is no longer the recommended production scheduler because
+its bounded auto-approval policy is less conservative than the controlled
+profile lifecycle.
+
+This code-only repository also contains a Google Colab workflow for an **unlabelled, state-aware shared LSTM Autoencoder**. One model learns normalized temporal patterns from all handlers, while every `machine_id + module_id` keeps its own scaler and anomaly threshold.
 
 The repository also contains a guarded **adaptive scoring and calibration system**. It keeps the shared model, train-only scalers, and golden baselines immutable while allowing a bounded operational profile to advance through frozen replay, synthetic-regression checks, shadow observations, automatic approval, audit history, and rollback.
 
