@@ -1,134 +1,349 @@
 # HT-9046MX Controlled Hybrid Condition Monitoring
 
-The production-candidate path is now **Controlled Hybrid v1**: an explainable
-COM2 detector is the primary decision path, while the immutable 30-epoch Shared
-LSTM (`shared_lstm_full_v1`) supplies independent shadow evidence and helps
-select clean bootstrap history. A new machine can learn a candidate profile
-automatically, but activation always stops at `APPROVAL_REQUIRED`; only a named
-human approver can create an `ACTIVE_FROZEN` profile.
+Production deployment uses **Controlled Hybrid v1**. The explainable COM2
+pipeline is the primary condition-monitoring decision path, while the immutable
+30-epoch Shared LSTM Autoencoder (`shared_lstm_full_v1`) supplies independent
+shadow evidence and filters bootstrap history.
 
-Start with [CONTROLLED_HYBRID_SYSTEM.md](CONTROLLED_HYBRID_SYSTEM.md). The older
-`adaptive_runner` flow remains in the repository for reproducibility and
-comparison, but it is no longer the recommended production scheduler because
-its bounded auto-approval policy is less conservative than the controlled
-profile lifecycle.
+This is condition monitoring, not a validated failure probability, root-cause
+diagnosis, or remaining-useful-life model. A new machine can learn its own
+candidate calibration profile automatically, but the first activation always
+stops at `APPROVAL_REQUIRED`. A named engineer must approve it before the
+versioned profile becomes `ACTIVE_FROZEN`.
 
-This code-only repository also contains a Google Colab workflow for an **unlabelled, state-aware shared LSTM Autoencoder**. One model learns normalized temporal patterns from all handlers, while every `machine_id + module_id` keeps its own scaler and anomaly threshold.
+For equations and the complete technical design, see
+[CONTROLLED_HYBRID_SYSTEM.md](CONTROLLED_HYBRID_SYSTEM.md). For the React +
+FastAPI model-monitor details, see
+[compressor_fastapi_react_dashboard/README.md](compressor_fastapi_react_dashboard/README.md).
 
-The repository also contains a guarded **adaptive scoring and calibration system**. It keeps the shared model, train-only scalers, and golden baselines immutable while allowing a bounded operational profile to advance through frozen replay, synthetic-regression checks, shadow observations, automatic approval, audit history, and rollback.
-
-Raw machine logs, trained models, virtual environments, and generated analysis outputs are intentionally excluded from GitHub.
-
-## Colab quick start
-
-1. Build the prepared dataset locally from the raw logs with the command below.
-2. Create `ht9046mx_colab_full_package.zip` containing the source and prepared bundle.
-3. Put `HT9046MX_Shared_Model_Colab.ipynb` in `MyDrive/Data Analysis`, then upload the package into Colab session storage at `/content`.
-4. Open the notebook in Google Colab.
-5. Select **Runtime → Change runtime type → T4 GPU** and run all cells.
-
-The notebook defaults to `USE_DRIVE = False` because DriveFS can be unavailable even for a signed-in Colab session. In this mode the trained adaptive runtime ZIP is downloaded automatically at the final cell. Set `USE_DRIVE = True` only when Drive mount is working and direct Drive persistence is preferred.
-
-Expected Google Drive layout:
+## Production architecture
 
 ```text
-MyDrive/
-└── Data Analysis/
-    ├── HT9046MX_Shared_Model_Colab.ipynb
-    └── ht9046mx_colab_full_package.zip  # optional when USE_DRIVE=True
+Handler compressor logs
+        |
+        | existing SMB/file-sync process
+        v
+C:\HT9046MX\Comp_log_data_MX###
+        |
+        | every 5 minutes
+        v
+quality/state gates -> 5-minute windows -> operating mode -> GMM regime
+        |
+        +-> COM2 primary evidence
+        |     Robust Z/MAD + Ridge LP2 residual + Isolation Forest + trend
+        |
+        +-> Shared LSTM shadow evidence
+        |     one frozen 30-epoch model + per-machine/module calibration
+        v
+fusion + persistence -> NORMAL / SHADOW / P1_REVIEW / P2_REVIEW
+        |
+        +-> controlled_runtime/predictions/<machine>.jsonl
+        +-> candidate/profile lifecycle and audit history
+        v
+React dashboard served by FastAPI
 ```
 
-Raw logs remain only on the local machine. They are not uploaded to GitHub or required by the training notebook.
+The production components are:
 
-Cells 11–12 create `adaptive_seed` and `ht9046mx_adaptive_runtime_<mode>.zip` for continuous scoring on Windows. See [ADAPTIVE_SYSTEM.md](ADAPTIVE_SYSTEM.md) for the complete setup and safety contract.
+- `compressor_ml/controlled_monitoring/`: Controlled Hybrid scoring,
+  bootstrap, lifecycle, approval, and audit logic.
+- `artifacts/shared_lstm_colab_full/`: deployable frozen Shared LSTM model,
+  manifest, thresholds, metrics, and train-group scalers.
+- `configs/controlled_condition_monitoring.json`: machine log sources and
+  runtime paths.
+- `configs/controlled_condition_monitoring_policy.json`: quality, profile,
+  shadow, persistence, and approval policy.
+- `scripts/run_controlled_monitoring_cycle.ps1`: one scoring cycle.
+- `scripts/install_controlled_monitoring_task.ps1`: five-minute Windows Task
+  Scheduler registration.
+- `compressor_fastapi_react_dashboard/`: production React/Vite + FastAPI model
+  monitor and handler configuration UI.
 
-## Build the prepared smoke dataset locally
+The older `compressor_ml.adaptive_runner` and `run_adaptive_cycle.ps1` remain
+only for reproducibility and comparison. Do **not** install them as the primary
+production scheduler.
 
-Run this from the local `Data Analysis` directory after installing the requirements:
+## What is already included in GitHub
 
-```powershell
-.\.venv\Scripts\python.exe -m compressor_ml.prepare_dataset `
-  --machine-dir "MX12=Clean Data MX12\2026_07\2026_07_13_cleaned.csv" `
-  --machine-dir "MX25=Clean Data MX25\2026_07\2026_07_12_cleaned.csv" `
-  --machine-dir "MX007=MX_007\2026_07_01_clean.csv" `
-  --machine-dir "MX017=MX017\2026_08_09.txt" `
-  --machine-dir "MX057=MX057\2026_08\2026_08_10.txt" `
-  --machine-dir "MX070=MX070\2026_08\2026_08_09.txt" `
-  --modules 1 2 3 4 5 6 8 `
-  --output-dir "prepared_dataset\shared_smoke_v2" `
-  --dataset-version "shared_smoke_v2" `
-  --max-windows-per-group 500
+The repository includes the deployable Shared LSTM artifact:
+
+```text
+artifacts/shared_lstm_colab_full/
+├── shared_model.keras
+├── manifest.json
+├── config.json
+├── thresholds.json
+├── group_metrics.csv
+└── scalers/
 ```
 
-The bundle stores unscaled `(60, 24)` windows with chronological 70/15/15 splits, metadata, source lineage, and a data-quality summary. Colab fits a separate train-only scaler for each machine-module, pools only normalized training windows, and calibrates thresholds from each group's validation partition.
+Raw compressor logs, Python/Node environments, and generated
+`controlled_runtime` data are intentionally excluded. The server generates the
+runtime state after deployment.
 
-Create the upload package after the dataset finishes:
+## Deploy on a Windows server
+
+### 1. Prerequisites
+
+Install these before cloning:
+
+- Git for Windows.
+- 64-bit Python 3.12 (recommended).
+- Node.js 20.19+ or 22.12+ with npm.
+- Administrator PowerShell only when registering Task Scheduler jobs.
+
+The examples use `C:\HT9046MX\Data Analysis` because the committed production
+configuration already points there.
+
+### 2. Clone the production branch
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\build_colab_package.py
+New-Item -ItemType Directory -Force C:\HT9046MX | Out-Null
+git clone https://github.com/Bookkapp/ht9046mx-shared-pdm-colab.git `
+  "C:\HT9046MX\Data Analysis"
+cd "C:\HT9046MX\Data Analysis"
 ```
 
-For the bounded full dataset, replace each explicit representative file with its machine directory, use a new immutable output directory such as `prepared_dataset\shared_full_v2`, set `--max-files-per-machine 10` (MX_007 contains three RTF reports that are audited and skipped), and increase `--max-windows-per-group` to `5000`. Then build a new ZIP and set `RUN_MODE = "full"` in the notebook.
-
-Build the full-only Colab package without duplicating the smoke dataset:
+For a server that already has the repository:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\build_colab_package.py `
-  --dataset-dir prepared_dataset\shared_full_v2 `
-  --output artifacts\ht9046mx_colab_full_package.zip
+cd "C:\HT9046MX\Data Analysis"
+git pull --ff-only origin main
 ```
 
-## Data-backed safeguards
+Do not copy `.venv` or `node_modules` from another computer. Build them on the
+target server.
 
-- Module 7 is excluded because the available logs show it is almost never active.
-- `Status_n` is the module-state field. `Busy_n=1`, `ChangeValve`, `AdjustValve`, `MValveHome`, negative Valve values, and `TempHi/TempLo=-200` are excluded from normal training.
-- Windows cannot cross a state transition or time gap.
-- Logger gaps up to five seconds are interpolated only inside an unchanged active-state run.
-- Train/validation/test splits are chronological inside each machine-module group.
-- The shared model uses balanced group weights; scalers and validation-p99 thresholds remain group-specific.
-- Output is anomaly detection with temporary pseudo-labels. It is not root-cause diagnosis or RUL.
-
-## Local single-group smoke test
+### 3. Install the model runtime
 
 ```powershell
-python -m venv .venv
+cd "C:\HT9046MX\Data Analysis"
+Set-ExecutionPolicy -Scope Process Bypass
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe -m compressor_ml.train `
-  --input MX017\2026_08_09.txt `
-  --machine-id MX017 --module-id 1 `
-  --output-dir artifacts\MX017_M1 `
-  --max-windows 120 --config configs\smoke_config.json
 ```
 
-Do not use a smoke artifact for maintenance decisions.
-
-## Adaptive scoring quick start
-
-After downloading and extracting the Colab adaptive runtime ZIP into `artifacts/shared_lstm_colab_smoke`:
+Confirm that the deployable model is present:
 
 ```powershell
-.\scripts\initialize_adaptive_runtime.ps1
-.\scripts\run_adaptive_cycle.ps1
-.\.venv\Scripts\python.exe -m compressor_ml.adaptive_runner status --runtime-dir adaptive_runtime
+Test-Path .\artifacts\shared_lstm_colab_full\shared_model.keras
+.\.venv\Scripts\python.exe -c `
+  "import tensorflow as tf; print(tf.__version__)"
 ```
 
-Only after reviewing the smoke output, install the scheduled cycle:
+`Test-Path` must return `True`.
+
+### 4. Prepare local compressor log folders
+
+The model does not read the SMB share directly. It reads synchronized local
+folders such as:
+
+```text
+C:\HT9046MX\Comp_log_data_MX017
+C:\HT9046MX\Comp_log_data_MX057
+C:\HT9046MX\Comp_log_data_MX070
+```
+
+Keep the existing SMB/file-sync Task Scheduler process responsible for copying
+new logs into those folders. A mapped drive or `net use` connection alone does
+not copy data into the model input directories.
+
+Review `configs/controlled_condition_monitoring.json`. Its `machine_sources`
+must contain the correct local folder for every enabled machine. The committed
+file contains the current 14-machine production list.
+
+Adding a handler through the Dashboard with `SYNC_CONTROLLED_SOURCES=true`
+adds its generated local destination to this config atomically. It does not
+create an SMB synchronization job.
+
+### 5. Run and inspect the first bootstrap
+
+Run one bootstrap manually before installing scheduled jobs:
 
 ```powershell
-.\scripts\install_adaptive_task.ps1 -IntervalMinutes 15
+cd "C:\HT9046MX\Data Analysis"
+.\.venv\Scripts\python.exe -m compressor_ml.controlled_monitoring.runner `
+  --system-config configs\controlled_condition_monitoring.json bootstrap
 ```
 
-Automatic approval applies only to bounded per-group calibration profiles. It does not approve shared-model retraining, fault diagnosis, or maintenance actions without maintenance-linked labels. The synthetic regression canary is scaled beyond each machine/module's immutable golden feature threshold, so a group with a wide historical operating range is tested at comparable severity instead of using a fixed shift that may fall inside its learned baseline.
-
-## Offline multi-machine adaptive test (no MySQL)
-
-This test copies an adaptive seed to a temporary runtime, feeds eligible reference-like observations to one machine/module, advances the guarded shadow approvals, and proves that a second machine/module profile and every golden profile remain unchanged:
+Inspect all lifecycle states:
 
 ```powershell
-.\.venv\Scripts\python.exe scripts\offline_adaptive_multimachine_test.py `
-  --seed-dir artifacts\shared_lstm_colab_full\adaptive_seed `
-  --target-group MX017__M02 `
-  --control-group MX070__M02
+.\.venv\Scripts\python.exe -m compressor_ml.controlled_monitoring.runner `
+  --system-config configs\controlled_condition_monitoring.json status
 ```
 
-The verified full-run test should advance `MX017__M02` through `SHADOW`, `SHADOW`, and `AUTO_APPROVED`, while `MX070__M02`, every golden profile, the train-only scalers, and the shared model remain unchanged. It does not connect to MySQL, retrain the shared model, or claim measured fault accuracy.
+Expected behavior:
+
+- Insufficient history remains `COLLECTING_DATA`; this is not an installation
+  failure.
+- Eligible history moves through `LEARNING` and creates a versioned candidate.
+- A trained LSTM group uses its immutable training scaler and threshold.
+- A new machine/module uses the same frozen Shared LSTM weights but fits a
+  local train/validation scaler and reconstruction threshold from its own
+  bootstrap history.
+- The system automatically enters `SHADOW_VALIDATION` after producing a
+  candidate.
+- It moves to `APPROVAL_REQUIRED` only after the configured shadow gates pass.
+- It never activates the first profile automatically.
+
+Generated state is stored under `controlled_runtime/`. Back up this directory
+because it contains candidate profiles, active frozen profiles, lifecycle
+state, predictions, and audit history.
+
+### 6. Install five-minute model scoring
+
+Open PowerShell **as Administrator**:
+
+```powershell
+cd "C:\HT9046MX\Data Analysis"
+Set-ExecutionPolicy -Scope Process Bypass
+.\scripts\install_controlled_monitoring_task.ps1 -IntervalMinutes 5
+Start-ScheduledTask -TaskName "HT9046MX-Controlled-Monitoring"
+```
+
+Check the latest result and scheduler logs:
+
+```powershell
+Get-Content .\controlled_runtime\latest_cycle.json
+Get-ChildItem .\controlled_runtime\scheduler_logs | `
+  Sort-Object LastWriteTime -Descending | Select-Object -First 5
+```
+
+The task ignores overlapping runs and never modifies the Shared LSTM weights.
+
+### 7. Install the React + FastAPI dashboard
+
+```powershell
+cd "C:\HT9046MX\Data Analysis\compressor_fastapi_react_dashboard"
+Set-ExecutionPolicy -Scope Process Bypass
+.\install_dashboard.ps1
+notepad .\backend\.env
+```
+
+At minimum, verify these values in `backend\.env`:
+
+```dotenv
+MODEL_PROJECT_ROOT=C:\HT9046MX\Data Analysis
+CONTROLLED_SYSTEM_CONFIG=C:\HT9046MX\Data Analysis\configs\controlled_condition_monitoring.json
+CONTROLLED_POLICY_FILE=C:\HT9046MX\Data Analysis\configs\controlled_condition_monitoring_policy.json
+CONTROLLED_RUNTIME_DIR=C:\HT9046MX\Data Analysis\controlled_runtime
+SHARED_MODEL_ARTIFACT=C:\HT9046MX\Data Analysis\artifacts\shared_lstm_colab_full
+HANDLER_DESTINATION_ROOT=C:\HT9046MX
+DASHBOARD_HOST=0.0.0.0
+DASHBOARD_PORT=8000
+API_KEY=replace-with-a-long-random-secret
+```
+
+Start it interactively for the first verification:
+
+```powershell
+.\run_dashboard.ps1
+```
+
+Open `http://SERVER_IP:8000`, then verify from another PowerShell window:
+
+```powershell
+cd "C:\HT9046MX\Data Analysis\compressor_fastapi_react_dashboard"
+.\verify_dashboard.ps1 -BaseUrl http://127.0.0.1:8000
+```
+
+The API documentation is at `http://SERVER_IP:8000/docs`. If another computer
+cannot connect, ask the site administrator to allow inbound TCP port 8000 in
+Windows Firewall.
+
+### 8. Install dashboard startup
+
+After the interactive check succeeds, stop it with `Ctrl+C`. Open PowerShell
+**as Administrator** and register the startup task:
+
+```powershell
+cd "C:\HT9046MX\Data Analysis\compressor_fastapi_react_dashboard"
+.\install_dashboard_task.ps1 -Port 8000
+Start-ScheduledTask -TaskName "HT9046MX-Model-Monitor"
+.\verify_dashboard.ps1 -BaseUrl http://127.0.0.1:8000
+```
+
+The dashboard and scoring jobs are intentionally separate:
+
+- `HT9046MX-Controlled-Monitoring`: scores new data every five minutes.
+- `HT9046MX-Model-Monitor`: starts React + FastAPI at Windows startup.
+
+### 9. Approve a profile
+
+Use the Machine Monitor page only after reviewing its data quality, COM2,
+Shared LSTM, regime, residual, and shadow evidence. Enter the engineer name,
+review note, and the same `API_KEY` configured in `backend\.env`.
+
+CLI approval is also available:
+
+```powershell
+cd "C:\HT9046MX\Data Analysis"
+.\.venv\Scripts\python.exe -m compressor_ml.controlled_monitoring.runner `
+  --system-config configs\controlled_condition_monitoring.json approve `
+  --machine-id MX017 --approved-by "Engineer.Name"
+```
+
+Approval creates a new versioned `ACTIVE_FROZEN` profile and audit event. It
+does not retrain the Shared LSTM, stop the handler, or delete older versions.
+
+## Data source and MySQL boundary
+
+This model-monitor deployment currently reads:
+
+- synchronized compressor log files for raw and engineered charts;
+- `controlled_runtime` JSONL/profile/lifecycle outputs for model decisions;
+- `artifacts/shared_lstm_colab_full` for immutable model evidence;
+- `backend/config/handlers.json` for handler onboarding.
+
+It does **not** read or write MySQL, so `MYSQL_*` variables from the older
+server `.env` have no effect on this dashboard. It can run beside the existing
+file-sync/MySQL application without altering that database. Connecting the
+Controlled Hybrid outputs to MySQL is a separate production integration phase.
+
+## Production validation checklist
+
+Before operational use, confirm all of the following:
+
+- The Shared LSTM file exists and TensorFlow can load it.
+- Every configured machine source points to a folder receiving current logs.
+- A manual scoring cycle finishes without error.
+- `latest_cycle.json` advances after new data arrives.
+- Both scheduled tasks run under an account with access to the deployment and
+  log folders.
+- `/api/v1/health` returns `ready`.
+- `verify_dashboard.ps1` reports the expected model version, 30 epochs, and
+  handler/data-source counts.
+- The production `API_KEY` is not the example value.
+- `controlled_runtime` is included in the server backup plan.
+- Candidate profiles are reviewed for at least the configured shadow period
+  before human approval.
+
+## Developer validation
+
+Run the model and dashboard test suites before releasing a code change:
+
+```powershell
+cd "C:\HT9046MX\Data Analysis"
+.\.venv\Scripts\python.exe -m pip install pytest
+.\.venv\Scripts\python.exe -m pytest tests
+
+cd .\compressor_fastapi_react_dashboard\backend
+.\.venv\Scripts\python.exe -m pytest
+
+cd ..\frontend
+npm ci
+npm run build
+```
+
+## Retraining in Google Colab
+
+Colab is required only when deliberately training a new Shared LSTM version; it
+is not required for normal deployment, onboarding, scoring, or local profile
+calibration. The current deployed model has already completed 30 epochs and is
+committed under `artifacts/shared_lstm_colab_full`.
+
+The retraining workflow is in `HT9046MX_Shared_Model_Colab.ipynb`. A retrained
+artifact must be versioned and validated before replacing the production
+artifact. The live scheduler must never update Shared LSTM weights by itself.
