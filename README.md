@@ -68,10 +68,6 @@ The production components are:
 - `compressor_fastapi_react_dashboard/`: production React/Vite + FastAPI model
   monitor and handler configuration UI.
 
-The older `compressor_ml.adaptive_runner` and `run_adaptive_cycle.ps1` remain
-only for reproducibility and comparison. Do **not** install them as the primary
-production scheduler.
-
 ## What is already included in GitHub
 
 The repository includes the deployable Shared LSTM artifact:

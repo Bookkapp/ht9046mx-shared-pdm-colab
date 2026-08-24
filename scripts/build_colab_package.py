@@ -41,15 +41,14 @@ def main() -> None:
         PROJECT_ROOT / "scripts",
         PROJECT_ROOT / "requirements.txt",
         PROJECT_ROOT / "README.md",
-        PROJECT_ROOT / "ADAPTIVE_SYSTEM.md",
         dataset_dir,
     )
     dataset_entry = f"prepared_dataset/{dataset_dir.name}/manifest.json"
     required_entries = {
-        "compressor_ml/adaptive.py",
-        "compressor_ml/adaptive_runner.py",
-        "configs/adaptive_calibration.json",
-        "scripts/run_adaptive_cycle.ps1",
+        "compressor_ml/train.py",
+        "compressor_ml/shared_artifact.py",
+        "compressor_ml/controlled_monitoring/runner.py",
+        "configs/controlled_condition_monitoring_policy.json",
         dataset_entry,
     }
 

@@ -6,7 +6,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from ..adaptive_runner import SharedArtifactBundle
+from ..shared_artifact import SharedArtifactBundle
 from ..anomaly import StandardScaler3D, reconstruction_error
 from ..features import engineer_features
 from ..prepare_dataset import safe_group_name
