@@ -113,6 +113,28 @@ class ModelMonitorStore:
     def _policy(self) -> dict[str, Any]:
         return _json(settings.controlled_policy_file, {})
 
+    def sync_status(self) -> dict[str, Any]:
+        sync = self._system().get("sync", {})
+        if not isinstance(sync, dict) or not sync.get("state_dir"):
+            return {
+                "available": False,
+                "message": "No sync.state_dir is configured for this model monitor.",
+            }
+        state_dir = Path(str(sync["state_dir"]))
+        if not state_dir.is_absolute():
+            state_dir = settings.controlled_system_config.parent / state_dir
+        latest = _json(state_dir / "latest_sync.json", {})
+        return {
+            "available": bool(latest),
+            "state_dir": str(state_dir),
+            "latest": latest or None,
+            "message": (
+                "SMB sync has not completed yet."
+                if not latest
+                else None
+            ),
+        }
+
     def _source_roots(self) -> dict[str, Path]:
         roots: dict[str, Path] = {}
         for handler in list_handlers():

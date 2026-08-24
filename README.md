@@ -15,15 +15,17 @@ For equations and the complete technical design, see
 [CONTROLLED_HYBRID_SYSTEM.md](CONTROLLED_HYBRID_SYSTEM.md). For the React +
 FastAPI model-monitor details, see
 [compressor_fastapi_react_dashboard/README.md](compressor_fastapi_react_dashboard/README.md).
+For a folder-by-folder guide, see
+[PROJECT_STRUCTURE.md](PROJECT_STRUCTURE.md).
 
 ## Production architecture
 
 ```text
 Handler compressor logs
         |
-        | existing SMB/file-sync process
+        | HT9046MX-SMB-Sync every 5 minutes
         v
-C:\HT9046MX\Comp_log_data_MX###
+C:\HT9046MX\data\incoming\Comp_log_data_MX###
         |
         | every 5 minutes
         v
@@ -37,7 +39,7 @@ quality/state gates -> 5-minute windows -> operating mode -> GMM regime
         v
 fusion + persistence -> NORMAL / SHADOW / P1_REVIEW / P2_REVIEW
         |
-        +-> controlled_runtime/predictions/<machine>.jsonl
+        +-> C:\HT9046MX\state\controlled_runtime\predictions\<machine>.jsonl
         +-> candidate/profile lifecycle and audit history
         v
 React dashboard served by FastAPI
@@ -49,10 +51,17 @@ The production components are:
   bootstrap, lifecycle, approval, and audit logic.
 - `artifacts/shared_lstm_colab_full/`: deployable frozen Shared LSTM model,
   manifest, thresholds, metrics, and train-group scalers.
-- `configs/controlled_condition_monitoring.json`: machine log sources and
-  runtime paths.
+- `configs/controlled_condition_monitoring.server.template.json`: template for
+  the permanent external runtime config; its handler registry is the source of
+  truth in production.
 - `configs/controlled_condition_monitoring_policy.json`: quality, profile,
   shadow, persistence, and approval policy.
+- `compressor_ml/smb_sync.py`: incremental SMB-to-local-data worker driven by
+  the persistent handler registry.
+- `scripts/initialize_server_state.ps1`: creates the permanent `state` and
+  `data` directories outside the Git checkout.
+- `scripts/install_smb_sync_task.ps1`: five-minute Windows Task Scheduler
+  registration for SMB log synchronization.
 - `scripts/run_controlled_monitoring_cycle.ps1`: one scoring cycle.
 - `scripts/install_controlled_monitoring_task.ps1`: five-minute Windows Task
   Scheduler registration.
@@ -96,22 +105,24 @@ The deployment uses CPU inference on native Windows. This is sufficient for
 five-minute scoring. TensorFlow GPU is not supported on native Windows after
 TensorFlow 2.10; use WSL2 only if GPU training/inference is explicitly needed.
 
-The examples use `C:\HT9046MX\Data Analysis` because the committed production
-configuration already points there.
+Use the permanent layout in [SERVER_FOLDER_LAYOUT.md](SERVER_FOLDER_LAYOUT.md):
+the Git checkout goes in `C:\HT9046MX\app`, while Dashboard-owned config,
+copied logs, profiles, and audit history live under `C:\HT9046MX\state` and
+`C:\HT9046MX\data`.
 
 ### 2. Clone the production branch
 
 ```powershell
 New-Item -ItemType Directory -Force C:\HT9046MX | Out-Null
 git clone https://github.com/Bookkapp/ht9046mx-shared-pdm-colab.git `
-  "C:\HT9046MX\Data Analysis"
-cd "C:\HT9046MX\Data Analysis"
+  "C:\HT9046MX\app"
+cd "C:\HT9046MX\app"
 ```
 
 For a server that already has the repository:
 
 ```powershell
-cd "C:\HT9046MX\Data Analysis"
+cd "C:\HT9046MX\app"
 git pull --ff-only origin main
 ```
 
@@ -121,7 +132,7 @@ target server.
 ### 3. Install the model runtime
 
 ```powershell
-cd "C:\HT9046MX\Data Analysis"
+cd "C:\HT9046MX\app"
 Set-ExecutionPolicy -Scope Process Bypass
 py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
@@ -149,44 +160,56 @@ Test-Path .\artifacts\shared_lstm_colab_full\shared_model.keras
 command must print the model input/output shapes without an exception. This is
 the required Python 3.13 smoke test before installing Task Scheduler jobs.
 
-### 4. Prepare local compressor log folders
+### 4. Create permanent server state
 
-The model does not read the SMB share directly. It reads synchronized local
-folders such as:
+Create Dashboard-writable state and local data folders **outside** the Git
+checkout. This copies the seeded handler registry to
+`C:\HT9046MX\state\config\handlers.json` and creates an external monitoring
+configuration that resolves enabled machine inputs directly from that registry.
 
-```text
-C:\HT9046MX\Comp_log_data_MX017
-C:\HT9046MX\Comp_log_data_MX057
-C:\HT9046MX\Comp_log_data_MX070
+```powershell
+cd "C:\HT9046MX\app"
+.\scripts\initialize_server_state.ps1
 ```
 
-Keep the existing SMB/file-sync Task Scheduler process responsible for copying
-new logs into those folders. A mapped drive or `net use` connection alone does
-not copy data into the model input directories.
+Read [SERVER_FOLDER_LAYOUT.md](SERVER_FOLDER_LAYOUT.md) before changing any
+paths. Do not edit `app\configs\controlled_condition_monitoring.json` on the
+server; it is a development/replay default kept under Git.
 
-Review `configs/controlled_condition_monitoring.json`. Its `machine_sources`
-must contain the correct local folder for every enabled machine. The committed
-file contains the current 14-machine production list.
+### 5. Run the first SMB synchronization
 
-Adding a handler through the Dashboard with `SYNC_CONTROLLED_SOURCES=true`
-adds its generated local destination to this config atomically. It does not
-create an SMB synchronization job.
+The Dashboard does not copy logs. The SMB worker reads the same persistent
+`handlers.json` file as the Dashboard and model runner. Test one cycle before
+registering its task:
 
-### 5. Run and inspect the first bootstrap
+```powershell
+cd "C:\HT9046MX\app"
+.\scripts\run_smb_sync_cycle.ps1 `
+  -SystemConfig "C:\HT9046MX\state\config\controlled_condition_monitoring.json"
+Get-Content "C:\HT9046MX\state\sync_state\latest_sync.json"
+```
+
+The scheduled-task account must be allowed to read every configured UNC path.
+Default `direct` mode uses that Windows account's existing SMB access. It does
+not prompt, map a drive, or save a password. If the site explicitly enables
+Guest SMB access, set `sync.connection_mode` to `guest` in the persistent
+monitoring config.
+
+### 6. Run and inspect the first bootstrap
 
 Run one bootstrap manually before installing scheduled jobs:
 
 ```powershell
-cd "C:\HT9046MX\Data Analysis"
+cd "C:\HT9046MX\app"
 .\.venv\Scripts\python.exe -m compressor_ml.controlled_monitoring.runner `
-  --system-config configs\controlled_condition_monitoring.json bootstrap
+  --system-config "C:\HT9046MX\state\config\controlled_condition_monitoring.json" bootstrap
 ```
 
 Inspect all lifecycle states:
 
 ```powershell
 .\.venv\Scripts\python.exe -m compressor_ml.controlled_monitoring.runner `
-  --system-config configs\controlled_condition_monitoring.json status
+  --system-config "C:\HT9046MX\state\config\controlled_condition_monitoring.json" status
 ```
 
 Expected behavior:
@@ -203,35 +226,43 @@ Expected behavior:
 - It moves to `APPROVAL_REQUIRED` only after the configured shadow gates pass.
 - It never activates the first profile automatically.
 
-Generated state is stored under `controlled_runtime/`. Back up this directory
-because it contains candidate profiles, active frozen profiles, lifecycle
-state, predictions, and audit history.
+Generated state is stored under `C:\HT9046MX\state\controlled_runtime`.
+Back up this directory because it contains candidate profiles, active frozen
+profiles, lifecycle state, predictions, and audit history.
 
-### 6. Install five-minute model scoring
+### 7. Install five-minute SMB sync and model scoring
 
 Open PowerShell **as Administrator**:
 
 ```powershell
-cd "C:\HT9046MX\Data Analysis"
+cd "C:\HT9046MX\app"
 Set-ExecutionPolicy -Scope Process Bypass
-.\scripts\install_controlled_monitoring_task.ps1 -IntervalMinutes 5
+.\scripts\install_smb_sync_task.ps1 -IntervalMinutes 5 `
+  -SystemConfig "C:\HT9046MX\state\config\controlled_condition_monitoring.json"
+.\scripts\install_controlled_monitoring_task.ps1 -IntervalMinutes 5 `
+  -SystemConfig "C:\HT9046MX\state\config\controlled_condition_monitoring.json"
+Start-ScheduledTask -TaskName "HT9046MX-SMB-Sync"
 Start-ScheduledTask -TaskName "HT9046MX-Controlled-Monitoring"
 ```
 
 Check the latest result and scheduler logs:
 
 ```powershell
-Get-Content .\controlled_runtime\latest_cycle.json
-Get-ChildItem .\controlled_runtime\scheduler_logs | `
+Get-Content "C:\HT9046MX\state\sync_state\latest_sync.json"
+Get-Content "C:\HT9046MX\state\controlled_runtime\latest_cycle.json"
+Get-ChildItem "C:\HT9046MX\state\logs\smb_sync" | `
+  Sort-Object LastWriteTime -Descending | Select-Object -First 5
+Get-ChildItem "C:\HT9046MX\state\controlled_runtime\scheduler_logs" | `
   Sort-Object LastWriteTime -Descending | Select-Object -First 5
 ```
 
-The task ignores overlapping runs and never modifies the Shared LSTM weights.
+Both tasks ignore overlapping runs. Neither task modifies the Shared LSTM
+weights; SMB sync never deletes copied log files.
 
-### 7. Install the React + FastAPI dashboard
+### 8. Install the React + FastAPI dashboard
 
 ```powershell
-cd "C:\HT9046MX\Data Analysis\compressor_fastapi_react_dashboard"
+cd "C:\HT9046MX\app\compressor_fastapi_react_dashboard"
 Set-ExecutionPolicy -Scope Process Bypass
 .\install_dashboard.ps1
 notepad .\backend\.env
@@ -240,12 +271,13 @@ notepad .\backend\.env
 At minimum, verify these values in `backend\.env`:
 
 ```dotenv
-MODEL_PROJECT_ROOT=C:\HT9046MX\Data Analysis
-CONTROLLED_SYSTEM_CONFIG=C:\HT9046MX\Data Analysis\configs\controlled_condition_monitoring.json
-CONTROLLED_POLICY_FILE=C:\HT9046MX\Data Analysis\configs\controlled_condition_monitoring_policy.json
-CONTROLLED_RUNTIME_DIR=C:\HT9046MX\Data Analysis\controlled_runtime
-SHARED_MODEL_ARTIFACT=C:\HT9046MX\Data Analysis\artifacts\shared_lstm_colab_full
-HANDLER_DESTINATION_ROOT=C:\HT9046MX
+MODEL_PROJECT_ROOT=C:\HT9046MX\app
+CONTROLLED_SYSTEM_CONFIG=C:\HT9046MX\state\config\controlled_condition_monitoring.json
+CONTROLLED_POLICY_FILE=C:\HT9046MX\app\configs\controlled_condition_monitoring_policy.json
+CONTROLLED_RUNTIME_DIR=C:\HT9046MX\state\controlled_runtime
+SHARED_MODEL_ARTIFACT=C:\HT9046MX\app\artifacts\shared_lstm_colab_full
+HANDLERS_FILE=C:\HT9046MX\state\config\handlers.json
+HANDLER_DESTINATION_ROOT=C:\HT9046MX\data\incoming
 DASHBOARD_HOST=0.0.0.0
 DASHBOARD_PORT=8000
 API_KEY=replace-with-a-long-random-secret
@@ -260,7 +292,7 @@ Start it interactively for the first verification:
 Open `http://SERVER_IP:8000`, then verify from another PowerShell window:
 
 ```powershell
-cd "C:\HT9046MX\Data Analysis\compressor_fastapi_react_dashboard"
+cd "C:\HT9046MX\app\compressor_fastapi_react_dashboard"
 .\verify_dashboard.ps1 -BaseUrl http://127.0.0.1:8000
 ```
 
@@ -268,13 +300,13 @@ The API documentation is at `http://SERVER_IP:8000/docs`. If another computer
 cannot connect, ask the site administrator to allow inbound TCP port 8000 in
 Windows Firewall.
 
-### 8. Install dashboard startup
+### 9. Install dashboard startup
 
 After the interactive check succeeds, stop it with `Ctrl+C`. Open PowerShell
 **as Administrator** and register the startup task:
 
 ```powershell
-cd "C:\HT9046MX\Data Analysis\compressor_fastapi_react_dashboard"
+cd "C:\HT9046MX\app\compressor_fastapi_react_dashboard"
 .\install_dashboard_task.ps1 -Port 8000
 Start-ScheduledTask -TaskName "HT9046MX-Model-Monitor"
 .\verify_dashboard.ps1 -BaseUrl http://127.0.0.1:8000
@@ -282,10 +314,12 @@ Start-ScheduledTask -TaskName "HT9046MX-Model-Monitor"
 
 The dashboard and scoring jobs are intentionally separate:
 
+- `HT9046MX-SMB-Sync`: copies changed handler logs from SMB into
+  `C:\HT9046MX\data\incoming` every five minutes.
 - `HT9046MX-Controlled-Monitoring`: scores new data every five minutes.
 - `HT9046MX-Model-Monitor`: starts React + FastAPI at Windows startup.
 
-### 9. Approve a profile
+### 10. Approve a profile
 
 Use the Machine Monitor page only after reviewing its data quality, COM2,
 Shared LSTM, regime, residual, and shadow evidence. Enter the engineer name,
@@ -294,9 +328,9 @@ review note, and the same `API_KEY` configured in `backend\.env`.
 CLI approval is also available:
 
 ```powershell
-cd "C:\HT9046MX\Data Analysis"
+cd "C:\HT9046MX\app"
 .\.venv\Scripts\python.exe -m compressor_ml.controlled_monitoring.runner `
-  --system-config configs\controlled_condition_monitoring.json approve `
+  --system-config "C:\HT9046MX\state\config\controlled_condition_monitoring.json" approve `
   --machine-id MX017 --approved-by "Engineer.Name"
 ```
 
@@ -308,9 +342,9 @@ does not retrain the Shared LSTM, stop the handler, or delete older versions.
 This model-monitor deployment currently reads:
 
 - synchronized compressor log files for raw and engineered charts;
-- `controlled_runtime` JSONL/profile/lifecycle outputs for model decisions;
+- `C:\HT9046MX\state\controlled_runtime` JSONL/profile/lifecycle outputs for model decisions;
 - `artifacts/shared_lstm_colab_full` for immutable model evidence;
-- `backend/config/handlers.json` for handler onboarding.
+- `C:\HT9046MX\state\config\handlers.json` for handler onboarding.
 
 It does **not** read or write MySQL, so `MYSQL_*` variables from the older
 server `.env` have no effect on this dashboard. It can run beside the existing
@@ -322,9 +356,10 @@ Controlled Hybrid outputs to MySQL is a separate production integration phase.
 Before operational use, confirm all of the following:
 
 - The Shared LSTM file exists and TensorFlow can load it.
+- `latest_sync.json` confirms every enabled handler can read its SMB source.
 - Every configured machine source points to a folder receiving current logs.
 - A manual scoring cycle finishes without error.
-- `latest_cycle.json` advances after new data arrives.
+- `latest_cycle.json` advances after new data arrives and sync completes.
 - Both scheduled tasks run under an account with access to the deployment and
   log folders.
 - `/api/v1/health` returns `ready`.
@@ -340,7 +375,7 @@ Before operational use, confirm all of the following:
 Run the model and dashboard test suites before releasing a code change:
 
 ```powershell
-cd "C:\HT9046MX\Data Analysis"
+cd "C:\HT9046MX\app"
 .\.venv\Scripts\python.exe -m pip install pytest
 .\.venv\Scripts\python.exe -m pytest tests
 

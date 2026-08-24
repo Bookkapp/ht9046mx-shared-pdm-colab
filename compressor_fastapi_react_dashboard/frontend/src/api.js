@@ -22,6 +22,7 @@ export const api = {
   profiles: (machine) => request(`/model/machines/${machine}/profiles`),
   comparison: (body) => request('/model/comparison', { method: 'POST', body: JSON.stringify(body) }),
   handlers: () => request('/handlers'),
+  syncStatus: () => request('/sync/status'),
   createHandler: (body, key) => request('/handlers', { method: 'POST', body: JSON.stringify(body), headers: adminHeaders(key) }),
   updateHandler: (machine, body, key) => request(`/handlers/${machine}`, { method: 'PATCH', body: JSON.stringify(body), headers: adminHeaders(key) }),
   deleteHandler: (machine, key) => request(`/handlers/${machine}`, { method: 'DELETE', headers: adminHeaders(key) }),

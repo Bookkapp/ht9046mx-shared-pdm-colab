@@ -130,36 +130,6 @@ def _new_record(machine_code: str, ip: str) -> dict[str, Any]:
     }
 
 
-def _sync_source(machine_code: str, destination: str | None) -> None:
-    if not settings.sync_controlled_sources or not settings.controlled_system_config.exists():
-        return
-    payload = json.loads(settings.controlled_system_config.read_text(encoding="utf-8"))
-    sources = payload.setdefault("machine_sources", {})
-    if destination is None:
-        current = str(sources.get(machine_code, ""))
-        expected = str(settings.handler_destination_root / f"Comp_log_data_{machine_code}")
-        if current.casefold() == expected.casefold():
-            sources.pop(machine_code, None)
-    else:
-        # Preserve an explicit existing source (useful for replay workstations),
-        # but automatically onboard machines not yet known to the model runner.
-        sources.setdefault(machine_code, destination)
-    _atomic_json(settings.controlled_system_config, payload)
-
-
-def sync_all_handler_sources() -> dict[str, str]:
-    if not settings.sync_controlled_sources or not settings.controlled_system_config.exists():
-        return {}
-    records = [item for item in _validated(_read(settings.handlers_file)) if item["enabled"]]
-    with _LOCK:
-        payload = json.loads(settings.controlled_system_config.read_text(encoding="utf-8"))
-        sources = payload.setdefault("machine_sources", {})
-        for item in records:
-            sources.setdefault(item["name"], item["destination"])
-        _atomic_json(settings.controlled_system_config, payload)
-        return dict(sources)
-
-
 def create_handler(machine_code: str, ip: str, path: Path | None = None) -> dict[str, Any]:
     name = normalize_machine(machine_code)
     address = normalize_ip(ip)
@@ -173,8 +143,6 @@ def create_handler(machine_code: str, ip: str, path: Path | None = None) -> dict
         record = _new_record(name, address)
         records.append(record)
         _atomic_json(config_path, _validated(records))
-        if path is None:
-            _sync_source(name, record["destination"])
         return _public(record)
 
 
@@ -204,8 +172,6 @@ def update_handler(
         if enabled is not None:
             target["enabled"] = bool(enabled)
         _atomic_json(config_path, _validated(records))
-        if path is None and target["enabled"]:
-            _sync_source(name, target["destination"])
         return _public(target)
 
 
@@ -218,6 +184,4 @@ def delete_handler(machine_code: str, path: Path | None = None) -> dict[str, Any
         if target is None:
             raise ValueError(f"Unknown handler: {name}")
         _atomic_json(config_path, [item for item in records if item["name"] != name])
-        if path is None:
-            _sync_source(name, None)
         return _public(target)

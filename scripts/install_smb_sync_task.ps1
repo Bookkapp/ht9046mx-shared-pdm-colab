@@ -1,5 +1,5 @@
 param(
-    [string]$TaskName = "HT9046MX-Controlled-Monitoring",
+    [string]$TaskName = "HT9046MX-SMB-Sync",
     [int]$IntervalMinutes = 5,
     [string]$SystemConfig = "configs\controlled_condition_monitoring.json"
 )
@@ -10,24 +10,24 @@ if ($IntervalMinutes -lt 5) {
 }
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
-$runnerPath = Join-Path $PSScriptRoot "run_controlled_monitoring_cycle.ps1"
-$fullModelPath = Join-Path $projectRoot "artifacts\shared_lstm_colab_full\shared_model.keras"
+$runnerPath = Join-Path $PSScriptRoot "run_smb_sync_cycle.ps1"
+$pythonPath = Join-Path $projectRoot ".venv\Scripts\python.exe"
 if ([System.IO.Path]::IsPathRooted($SystemConfig)) {
-    $systemConfig = [System.IO.Path]::GetFullPath($SystemConfig)
+    $configPath = [System.IO.Path]::GetFullPath($SystemConfig)
 }
 else {
-    $systemConfig = Join-Path $projectRoot $SystemConfig
+    $configPath = Join-Path $projectRoot $SystemConfig
 }
 
-if (-not (Test-Path -LiteralPath $fullModelPath)) {
-    throw "Full Shared LSTM model is not ready: $fullModelPath"
+if (-not (Test-Path -LiteralPath $pythonPath)) {
+    throw "Python environment not found: $pythonPath"
 }
-if (-not (Test-Path -LiteralPath $systemConfig)) {
-    throw "Controlled monitoring config is missing: $systemConfig"
+if (-not (Test-Path -LiteralPath $configPath)) {
+    throw "SMB sync config is missing: $configPath"
 }
 
 $powerShell = (Get-Command powershell.exe).Source
-$actionArguments = "-NoProfile -ExecutionPolicy Bypass -File `"$runnerPath`" -SystemConfig `"$systemConfig`""
+$actionArguments = "-NoProfile -ExecutionPolicy Bypass -File `"$runnerPath`" -SystemConfig `"$configPath`""
 $action = New-ScheduledTaskAction -Execute $powerShell -Argument $actionArguments -WorkingDirectory $projectRoot
 $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) `
     -RepetitionInterval (New-TimeSpan -Minutes $IntervalMinutes) `
@@ -35,9 +35,9 @@ $trigger = New-ScheduledTaskTrigger -Once -At (Get-Date).AddMinutes(1) `
 $settings = New-ScheduledTaskSettingsSet -StartWhenAvailable -MultipleInstances IgnoreNew
 
 Register-ScheduledTask -TaskName $TaskName -Action $action -Trigger $trigger -Settings $settings `
-    -Description "COM2-primary condition monitoring with immutable Shared-LSTM shadow and human-approved frozen profiles" -Force
+    -Description "Copies incremental HT9046MX handler logs from SMB shares to permanent local data folders" -Force
 
 Write-Output "Installed scheduled task: $TaskName"
 Write-Output "Interval: every $IntervalMinutes minutes"
-Write-Output "Model: artifacts\shared_lstm_colab_full\shared_model.keras"
-Write-Output "System config: $systemConfig"
+Write-Output "System config: $configPath"
+Write-Output "Run the task under a Windows account permitted to read the configured SMB shares."
