@@ -18,7 +18,6 @@ Data Analysis\
 ├── HT9046MX_Shared_Model_Colab.ipynb        Shared LSTM training notebook
 ├── README.md                                Deployment/operator guide
 ├── CONTROLLED_HYBRID_SYSTEM.md              Technical pipeline design
-├── ADAPTIVE_SYSTEM.md                       Earlier adaptive-system reference
 ├── PROJECT_STRUCTURE.md                     This guide
 └── SERVER_FOLDER_LAYOUT.md                  Server folder guide
 ```
@@ -32,7 +31,7 @@ Data Analysis\
 | `compressor_fastapi_react_dashboard` | Web API/UI: Dashboard views model state and writes handler configuration. | `backend\`, `frontend\`, dashboard scripts | Yes |
 | `configs` | Versioned policy and templates. Live runtime config is kept outside this folder. | Policy JSON, server-state template, local dev config | Yes |
 | `scripts` | Repeatable initialization, scheduler installation, validation and offline tools. | SMB/model runners and install scripts | Yes |
-| `tests` | Regression tests run before a release. | SMB, model, pipeline and adaptive tests | Optional but recommended |
+| `tests` | Regression tests run before a release. | SMB, model and Controlled Hybrid pipeline tests | Optional but recommended |
 
 ### `artifacts\shared_lstm_colab_full`
 
@@ -56,7 +55,7 @@ Data Analysis\
 | `features.py`, `windowing.py` | General feature and window helpers. |
 | `model.py`, `train.py`, `inference.py` | Shared-model training/inference utilities for the Colab workflow. |
 | `smb_sync.py` | Five-minute incremental SMB copier. Reads `handlers.json`, safely copies changed `.txt/.csv/.log` files, and writes `latest_sync.json`. |
-| `adaptive.py`, `adaptive_runner.py`, `anomaly.py`, `config.py` | Earlier adaptive workflow, retained for research/backward compatibility; not the current scheduled production path. |
+| `anomaly.py`, `config.py`, `shared_artifact.py` | Shared LSTM scaling, configuration, reconstruction error, and immutable artifact loading. |
 | `controlled_monitoring\` | Current production Controlled Hybrid pipeline. |
 
 Current production files in `compressor_ml\controlled_monitoring\`:
@@ -125,8 +124,6 @@ Frontend `src`:
 | `controlled_condition_monitoring_policy.json` | Versioned data-quality, context, profile, COM2/LSTM fusion, persistence and approval policy. |
 | `controlled_condition_monitoring.server.template.json` | Rendered once by the initialization script into external permanent server config. |
 | `controlled_condition_monitoring.json` | Local/dev config. `handlers_file` overrides its legacy `machine_sources` for enabled machines. Do not use it as the permanent server config. |
-| `adaptive_system.json`, `adaptive_calibration.json` | Earlier adaptive workflow configuration. |
-| `smoke_config.json` | Small test configuration. |
 
 ### `scripts`
 
@@ -138,9 +135,6 @@ Frontend `src`:
 | `run_controlled_monitoring_cycle.ps1` | Runs one model-scoring cycle from local copied logs. |
 | `install_controlled_monitoring_task.ps1` | Creates `HT9046MX-Controlled-Monitoring` every five minutes. |
 | `build_colab_package.py` | Builds a Colab upload/training package. |
-| `update_adaptive_notebook.py`, `offline_adaptive_multimachine_test.py` | Offline adaptive-analysis utilities. |
-| `initialize_adaptive_runtime.ps1`, `install_adaptive_task.ps1`, `run_adaptive_cycle.ps1` | Earlier adaptive scheduler path; do not install alongside Controlled Hybrid unless evaluating it separately. |
-| `build_model_strategy_review.py`, `export_dashboard_snapshot.py` | Current local presentation/report utilities. |
 
 ### `tests`
 
@@ -149,7 +143,6 @@ Frontend `src`:
 | `test_smb_sync.py` | Handler precedence, disabled handler behavior, incremental/nested copy, and oversize handling. |
 | `test_controlled_monitoring.py` | Lifecycle, profiles, shadow scoring, fusion, and runner behavior. |
 | `test_pipeline.py` | Shared pipeline/training/inference contracts. |
-| `test_adaptive.py`, `test_adaptive_bootstrap.py` | Earlier adaptive workflow. |
 
 ## Local analysis and generated folders
 
@@ -158,9 +151,7 @@ Frontend `src`:
 | `Clean Data MX12`, `Clean Data MX25`, `MX_007`, `MX017`, `MX057`, `MX070` | Local raw/cleaned compressor logs for analysis and smoke tests. | Kept out of Git; do not make them a production runtime dependency. |
 | `prepared_dataset` | Intermediate training datasets. | Local/Colab preparation output. |
 | `analysis_output` | Exploratory results, charts and metrics. | Local/reporting output. |
-| `adaptive_runtime` | Earlier adaptive runtime state. | Not used by current Controlled Hybrid schedule. |
 | `controlled_runtime` | Local development profiles/predictions/cache. | Git-ignored; production uses external `state\controlled_runtime`. |
-| `dashboard`, `docs` | Generated Dashboard/presentation artifacts present in this workspace. | Reference outputs, not required app folders. |
 | `.venv`, `node_modules`, `__pycache__`, `.pytest_cache` | Local packages and caches. | Never commit; recreate on each Server. |
 
 ## Permanent production folders (outside Git)
