@@ -88,9 +88,13 @@ runtime state after deployment.
 Install these before cloning:
 
 - Git for Windows.
-- 64-bit Python 3.12 (recommended).
+- 64-bit Python **3.13.14** (recommended for a new Windows server).
 - Node.js 20.19+ or 22.12+ with npm.
 - Administrator PowerShell only when registering Task Scheduler jobs.
+
+The deployment uses CPU inference on native Windows. This is sufficient for
+five-minute scoring. TensorFlow GPU is not supported on native Windows after
+TensorFlow 2.10; use WSL2 only if GPU training/inference is explicitly needed.
 
 The examples use `C:\HT9046MX\Data Analysis` because the committed production
 configuration already points there.
@@ -119,10 +123,17 @@ target server.
 ```powershell
 cd "C:\HT9046MX\Data Analysis"
 Set-ExecutionPolicy -Scope Process Bypass
-py -3.12 -m venv .venv
+py -3.13 -m venv .venv
 .\.venv\Scripts\python.exe -m pip install --upgrade pip
 .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m pip install "tensorflow==2.21.0"
 ```
+
+The final command pins the currently supported TensorFlow wheel for Python
+3.13 on Windows x64, rather than relying on a future untested TensorFlow
+release. If `.venv` already exists and was created with another Python
+version, do not reuse it: preserve it as a rollback copy, then create a fresh
+`.venv` with Python 3.13 before continuing.
 
 Confirm that the deployable model is present:
 
@@ -130,9 +141,13 @@ Confirm that the deployable model is present:
 Test-Path .\artifacts\shared_lstm_colab_full\shared_model.keras
 .\.venv\Scripts\python.exe -c `
   "import tensorflow as tf; print(tf.__version__)"
+.\.venv\Scripts\python.exe -c `
+  "import tensorflow as tf; m=tf.keras.models.load_model(r'artifacts\shared_lstm_colab_full\shared_model.keras'); print(m.input_shape, m.output_shape)"
 ```
 
-`Test-Path` must return `True`.
+`Test-Path` must return `True`, TensorFlow must print `2.21.0`, and the final
+command must print the model input/output shapes without an exception. This is
+the required Python 3.13 smoke test before installing Task Scheduler jobs.
 
 ### 4. Prepare local compressor log folders
 
