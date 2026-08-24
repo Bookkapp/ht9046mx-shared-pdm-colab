@@ -12,13 +12,6 @@ BACKEND_ROOT = DASHBOARD_ROOT / "backend"
 load_dotenv(BACKEND_ROOT / ".env")
 
 
-def _bool(name: str, default: bool) -> bool:
-    value = os.getenv(name)
-    if value is None:
-        return default
-    return value.strip().lower() in {"1", "true", "yes", "on"}
-
-
 def _integer(name: str, default: int, minimum: int = 1) -> int:
     value = int(os.getenv(name, str(default)))
     if value < minimum:
@@ -63,7 +56,7 @@ class Settings:
         "FRONTEND_DIST", DASHBOARD_ROOT / "frontend" / "dist"
     )
     handler_destination_root: Path = _path(
-        "HANDLER_DESTINATION_ROOT", Path(r"C:\HT9046MX")
+        "HANDLER_DESTINATION_ROOT", Path(r"C:\HT9046MX\data\incoming")
     )
     handler_share_template: str = os.getenv(
         "HANDLER_SHARE_TEMPLATE", "Comp_log_data_{machine_code}"
@@ -84,7 +77,6 @@ class Settings:
     prediction_read_limit: int = _integer(
         "DASHBOARD_PREDICTION_READ_LIMIT", 20_000, 1_000
     )
-    sync_controlled_sources: bool = _bool("SYNC_CONTROLLED_SOURCES", True)
     host: str = os.getenv("DASHBOARD_HOST", "0.0.0.0")
     port: int = _integer("DASHBOARD_PORT", 8000, 1)
 

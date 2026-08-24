@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import argparse
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import hashlib
 import json
@@ -31,15 +31,44 @@ class ControlledSystemConfig:
     policy_file: str
     shared_model_artifact: str
     runtime_dir: str
-    machine_sources: dict[str, str]
     modules: list[int]
+    machine_sources: dict[str, str] = field(default_factory=dict)
+    handlers_file: str | None = None
+    sync: dict[str, Any] = field(default_factory=dict)
     bootstrap_max_files_per_machine: int = 14
     max_files_per_cycle: int = 10
 
     @classmethod
     def load(cls, path: str | Path) -> "ControlledSystemConfig":
-        payload = json.loads(Path(path).read_text(encoding="utf-8"))
-        return cls(**payload)
+        config_path = Path(path).resolve()
+        payload = json.loads(config_path.read_text(encoding="utf-8"))
+        system = cls(**payload)
+        if system.handlers_file:
+            handler_path = Path(system.handlers_file)
+            if not handler_path.is_absolute():
+                handler_path = config_path.parent / handler_path
+            records = json.loads(handler_path.read_text(encoding="utf-8"))
+            if not isinstance(records, list):
+                raise ValueError("handlers_file must contain a JSON array")
+            for record in records:
+                if not isinstance(record, dict):
+                    continue
+                machine_id = str(record.get("name", "")).strip().upper()
+                if not machine_id:
+                    raise ValueError("Every handler must provide a name")
+                if not bool(record.get("enabled", True)):
+                    system.machine_sources.pop(machine_id, None)
+                    continue
+                destination = str(record.get("destination", "")).strip()
+                if not destination:
+                    raise ValueError(
+                        "Every enabled handler must provide name and destination"
+                    )
+                # The persistent handler registry owns current machine inputs.
+                # Keep machine_sources only as a backward-compatible fallback
+                # for offline replay configurations.
+                system.machine_sources[machine_id] = destination
+        return system
 
 
 class FileRegistry:

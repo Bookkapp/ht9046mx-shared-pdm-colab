@@ -44,6 +44,14 @@ def test_fleet_contract_uses_supplied_handler_configuration() -> None:
     assert all("lifecycle_state" in item for item in payload["machines"])
 
 
+def test_sync_status_is_available_even_before_the_first_smb_cycle() -> None:
+    response = get("/api/v1/sync/status")
+    assert response.status_code == 200
+    payload = response.json()
+    assert "available" in payload
+    assert "latest" in payload
+
+
 def test_flattened_evidence_keeps_com2_and_lstm_separate() -> None:
     point = store._flatten_prediction(
         {

@@ -5,6 +5,7 @@ param(
 $ErrorActionPreference = "Stop"
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $pythonPath = Join-Path $projectRoot ".venv\Scripts\python.exe"
+
 if ([System.IO.Path]::IsPathRooted($SystemConfig)) {
     $configPath = [System.IO.Path]::GetFullPath($SystemConfig)
 }
@@ -16,29 +17,28 @@ if (-not (Test-Path -LiteralPath $pythonPath)) {
     throw "Python environment not found: $pythonPath"
 }
 if (-not (Test-Path -LiteralPath $configPath)) {
-    throw "Controlled monitoring config not found: $configPath"
+    throw "SMB sync config not found: $configPath"
 }
 
 $system = Get-Content -Raw -LiteralPath $configPath | ConvertFrom-Json
-$runtimeDirectory = [string]$system.runtime_dir
-if (-not $runtimeDirectory) {
-    throw "runtime_dir is missing from $configPath"
+$stateDirectory = [string]$system.sync.state_dir
+if (-not $stateDirectory) {
+    throw "sync.state_dir is missing from $configPath"
 }
-if (-not [System.IO.Path]::IsPathRooted($runtimeDirectory)) {
-    $runtimeDirectory = Join-Path $projectRoot $runtimeDirectory
+if (-not [System.IO.Path]::IsPathRooted($stateDirectory)) {
+    $stateDirectory = Join-Path (Split-Path -Parent $configPath) $stateDirectory
 }
-$logDirectory = Join-Path $runtimeDirectory "scheduler_logs"
-
+$logDirectory = Join-Path (Split-Path -Parent $stateDirectory) "logs\smb_sync"
 New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
 $stamp = Get-Date -Format "yyyyMMdd_HHmmss"
-$logPath = Join-Path $logDirectory "cycle_$stamp.log"
+$logPath = Join-Path $logDirectory "sync_$stamp.log"
 
 Push-Location $projectRoot
 try {
-    & $pythonPath -m compressor_ml.controlled_monitoring.runner `
-        --system-config $configPath cycle 2>&1 | Tee-Object -FilePath $logPath
+    & $pythonPath -m compressor_ml.smb_sync --system-config $configPath 2>&1 |
+        Tee-Object -FilePath $logPath
     if ($LASTEXITCODE -ne 0) {
-        throw "Controlled monitoring cycle failed with exit code $LASTEXITCODE. See $logPath"
+        throw "SMB sync cycle failed with exit code $LASTEXITCODE. See $logPath"
     }
 }
 finally {

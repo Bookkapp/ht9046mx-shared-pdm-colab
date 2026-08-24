@@ -17,7 +17,6 @@ from .handler_store import (
     create_handler,
     delete_handler,
     list_handlers,
-    sync_all_handler_sources,
     update_handler,
 )
 from .model_store import store
@@ -52,12 +51,8 @@ class ApprovalRequest(BaseModel):
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    try:
-        sync_all_handler_sources()
-    except (FileNotFoundError, ValueError, OSError):
-        # Readiness reports unavailable paths. The API still starts so an
-        # operator can inspect and repair configuration from the server.
-        pass
+    # Handler records live in the persistent server state directory. The
+    # dashboard never writes the Git-tracked model configuration on startup.
     yield
 
 
@@ -140,6 +135,7 @@ def config() -> dict[str, Any]:
         "api_prefix": settings.api_prefix,
         "writes_require_api_key": bool(settings.api_key),
         "model_monitor_mode": "controlled_hybrid_v1",
+        "handler_destination_root": str(settings.handler_destination_root),
     }
 
 
@@ -154,6 +150,11 @@ def handlers() -> list[dict[str, Any]]:
         return list_handlers()
     except (FileNotFoundError, ValueError) as error:
         raise _value_error(error) from error
+
+
+@app.get(f"{API}/sync/status")
+def sync_status() -> dict[str, Any]:
+    return store.sync_status()
 
 
 @app.post(
