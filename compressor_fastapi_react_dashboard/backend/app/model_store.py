@@ -4,7 +4,6 @@ from collections import defaultdict
 import csv
 from datetime import date, datetime, timezone
 from functools import lru_cache
-import hashlib
 import json
 import math
 from pathlib import Path
@@ -16,7 +15,6 @@ import numpy as np
 import pandas as pd
 
 from .catalog import METRIC_BY_KEY
-from .handler_store import list_handlers, normalize_machine
 from .settings import settings
 
 
@@ -29,8 +27,9 @@ from compressor_ml.controlled_monitoring.lifecycle import (
     ProfileRepository,
 )
 from compressor_ml.controlled_monitoring.windowing import build_event_windows
-from compressor_ml.prepare_dataset import discover_daily_files, safe_group_name
-from compressor_ml.preprocessing import read_handler_log
+from compressor_ml.machine import normalize_machine
+from compressor_ml.mysql_source import MySQLReadingsSource
+from compressor_ml.prepare_dataset import safe_group_name
 
 
 def _json(path: Path, default: Any) -> Any:
@@ -86,91 +85,22 @@ def _prediction_cache(
     return tuple(_tail_jsonl(Path(path_text), max_lines))
 
 
-@lru_cache(maxsize=12)
-def _window_cache(
-    path_text: str,
-    size: int,
-    modified_ns: int,
-    machine_id: str,
-    module_id: int,
-    policy_path: str,
-) -> pd.DataFrame:
-    del size, modified_ns
-    raw = read_handler_log(Path(path_text), machine_id, module_ids=[module_id])
-    if raw.empty:
-        return pd.DataFrame()
-    policy = ControlledMonitoringConfig.load(policy_path)
-    return build_event_windows(raw, policy)
-
-
 class ModelMonitorStore:
     def __init__(self) -> None:
         self.repository = ProfileRepository(settings.controlled_runtime_dir / "profiles")
+        system = self._system()
+        self.source = MySQLReadingsSource.from_mapping(
+            system.get("mysql", {}), env_file=system.get("env_file")
+        )
 
     def _system(self) -> dict[str, Any]:
-        return _json(settings.controlled_system_config, {"machine_sources": {}, "modules": []})
+        return _json(settings.controlled_system_config, {"mysql": {}, "modules": []})
 
     def _policy(self) -> dict[str, Any]:
         return _json(settings.controlled_policy_file, {})
 
-    def sync_status(self) -> dict[str, Any]:
-        sync = self._system().get("sync", {})
-        if not isinstance(sync, dict) or not sync.get("state_dir"):
-            return {
-                "available": False,
-                "message": "No sync.state_dir is configured for this model monitor.",
-            }
-        state_dir = Path(str(sync["state_dir"]))
-        if not state_dir.is_absolute():
-            state_dir = settings.controlled_system_config.parent / state_dir
-        latest = _json(state_dir / "latest_sync.json", {})
-        return {
-            "available": bool(latest),
-            "state_dir": str(state_dir),
-            "latest": latest or None,
-            "message": (
-                "SMB sync has not completed yet."
-                if not latest
-                else None
-            ),
-        }
-
-    def _source_roots(self) -> dict[str, Path]:
-        roots: dict[str, Path] = {}
-        for handler in list_handlers():
-            destination = Path(handler["destination"])
-            if destination.exists():
-                roots[handler["name"]] = destination
-        for machine, source in self._system().get("machine_sources", {}).items():
-            candidate = Path(str(source))
-            if not candidate.is_absolute():
-                candidate = settings.model_project_root / candidate
-            if machine not in roots and candidate.exists():
-                roots[machine] = candidate
-        return roots
-
-    def _files(self, machine_id: str) -> list[Path]:
-        root = self._source_roots().get(machine_id)
-        if root is None:
-            return []
-        try:
-            return discover_daily_files(root)
-        except (FileNotFoundError, ValueError):
-            return []
-
-    @staticmethod
-    def _select_file(files: list[Path], selected_date: date | None) -> Path | None:
-        if not files:
-            return None
-        if selected_date is None:
-            return files[-1]
-        tokens = {
-            selected_date.strftime("%Y_%m_%d"),
-            selected_date.strftime("%Y-%m-%d"),
-            selected_date.strftime("%Y%m%d"),
-        }
-        matches = [path for path in files if any(token in path.name for token in tokens)]
-        return matches[-1] if matches else None
+    def source_status(self) -> dict[str, Any]:
+        return self.source.health()
 
     def _predictions(self, machine_id: str) -> list[dict[str, Any]]:
         path = settings.controlled_runtime_dir / "predictions" / f"{machine_id}.jsonl"
@@ -393,44 +323,28 @@ class ModelMonitorStore:
     def _signal_windows(
         self, machine_id: str, module_id: int, selected_date: date | None
     ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-        files = self._files(machine_id)
-        source = self._select_file(files, selected_date)
-        if source is None:
-            return [], {
-                "available": False,
-                "file_name": None,
-                "message": "No synchronized log file matched the selected date.",
-            }
-        stat = source.stat()
-        signature = hashlib.sha256(
-            f"{source.resolve()}|{stat.st_size}|{stat.st_mtime_ns}|{machine_id}|{module_id}".encode()
-        ).hexdigest()[:24]
-        cache_path = (
-            settings.controlled_runtime_dir
-            / "dashboard_cache"
-            / "windows"
-            / f"{machine_id}__M{module_id:02d}__{signature}.joblib"
-        )
         try:
-            if cache_path.exists():
-                frame = joblib.load(cache_path)
+            if selected_date is not None:
+                start = pd.Timestamp(selected_date, tz=self.source.config.timezone)
+                end = start + pd.Timedelta(days=1)
             else:
-                frame = _window_cache(
-                    str(source.resolve()),
-                    stat.st_size,
-                    stat.st_mtime_ns,
-                    machine_id,
-                    module_id,
-                    str(settings.controlled_policy_file.resolve()),
-                ).copy()
-                cache_path.parent.mkdir(parents=True, exist_ok=True)
-                temporary = cache_path.with_suffix(cache_path.suffix + ".tmp")
-                joblib.dump(frame, temporary)
-                temporary.replace(cache_path)
+                latest = self.source.latest_timestamp(machine_id)
+                if latest is None:
+                    return [], {
+                        "available": False,
+                        "source_type": "mysql",
+                        "message": "No MySQL telemetry exists for this machine.",
+                    }
+                end = latest + pd.Timedelta(seconds=1)
+                start = end - pd.Timedelta(days=1)
+            raw = self.source.read_machine(machine_id, start, end)
+            raw = raw.loc[raw["module_id"].eq(module_id)].copy()
+            policy = ControlledMonitoringConfig.load(settings.controlled_policy_file)
+            frame = build_event_windows(raw, policy) if not raw.empty else pd.DataFrame()
         except Exception as error:
             return [], {
                 "available": False,
-                "file_name": source.name,
+                "source_type": "mysql",
                 "message": f"{type(error).__name__}: {error}",
             }
         if selected_date is not None and not frame.empty:
@@ -465,10 +379,12 @@ class ModelMonitorStore:
             )
         return points, {
             "available": True,
-            "file_name": source.name,
-            "file_modified_at": datetime.fromtimestamp(
-                stat.st_mtime, tz=timezone.utc
-            ).isoformat(),
+            "source_type": "mysql",
+            "host": self.source.config.host,
+            "readings_table": self.source.config.readings_table,
+            "query_start": start.isoformat(),
+            "query_end": end.isoformat(),
+            "raw_row_count": int(len(raw)),
             "point_count": len(points),
             "source_grain": "five-minute median derived from raw event-time rows",
         }
@@ -538,11 +454,10 @@ class ModelMonitorStore:
 
     def fleet(self) -> dict[str, Any]:
         artifact = self.artifact()
-        roots = self._source_roots()
         machines: list[dict[str, Any]] = []
         review_counts: defaultdict[str, int] = defaultdict(int)
-        for handler in list_handlers():
-            machine = handler["name"]
+        freshness = self.source.latest_by_machine()
+        for machine in self.source.machines():
             lifecycle = self._lifecycle(machine)
             predictions = [self._flatten_prediction(item) for item in self._predictions(machine)]
             latest_by_module: dict[int, dict[str, Any]] = {}
@@ -554,7 +469,6 @@ class ModelMonitorStore:
                 key=lambda item: str(item.get("event_time") or ""),
                 default=None,
             )
-            files = self._files(machine)
             active_version = lifecycle.get("active_version")
             candidate_version = lifecycle.get("candidate_version")
             profile_directory = None
@@ -570,14 +484,9 @@ class ModelMonitorStore:
             machines.append(
                 {
                     "machine_id": machine,
-                    "enabled": handler["enabled"],
-                    "ip": handler["ip"],
-                    "data_source_available": machine in roots,
-                    "latest_source_file": files[-1].name if files else None,
-                    "latest_source_modified_at": (
-                        datetime.fromtimestamp(files[-1].stat().st_mtime, tz=timezone.utc).isoformat()
-                        if files
-                        else None
+                    "data_source_available": machine in freshness,
+                    "latest_source_at": (
+                        freshness[machine].isoformat() if machine in freshness else None
                     ),
                     "lifecycle_state": lifecycle.get("state"),
                     "candidate_version": candidate_version,
@@ -600,7 +509,7 @@ class ModelMonitorStore:
             "policy_version": self._policy().get("policy_version"),
             "artifact": artifact,
             "summary": {
-                "configured_handlers": len(machines),
+                "mysql_machines": len(machines),
                 "data_sources_available": sum(bool(item["data_source_available"]) for item in machines),
                 "active_frozen": states[LifecycleState.ACTIVE.value],
                 "approval_required": states[LifecycleState.APPROVAL_REQUIRED.value],
@@ -610,7 +519,7 @@ class ModelMonitorStore:
                 "p2_review_records": review_counts["P2_REVIEW"],
             },
             "machines": machines,
-            "freshness_note": "Source file timestamps are filesystem freshness; event-time freshness appears after scoring.",
+            "freshness_note": "MySQL MAX(recorded_at) is event-time freshness; model decisions may lag until the next five-minute cycle.",
         }
 
     def comparison(
@@ -706,7 +615,7 @@ class ModelMonitorStore:
             ],
             "activation_policy": "human approval creates versioned ACTIVE_FROZEN",
             "sources": {
-                "signals": "synchronized handler log files",
+                "signals": "read-only MySQL telemetry rows",
                 "decisions": "controlled_runtime/predictions/<machine>.jsonl",
                 "profiles": "controlled_runtime/profiles versioned joblib bundles",
                 "shared_model": "artifacts/shared_lstm_colab_full manifest, thresholds, metrics, and immutable Keras weights",

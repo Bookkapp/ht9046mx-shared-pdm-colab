@@ -4,7 +4,6 @@ const NAV = [
   { key: 'fleet', label: 'Fleet overview', href: '#/', icon: '▦' },
   { key: 'compare', label: 'Compare signals', href: '#/compare', icon: '⇄' },
   { key: 'pipeline', label: 'Pipeline & model', href: '#/pipeline', icon: '⌁' },
-  { key: 'handlers', label: 'Handler setup', href: '#/handlers', icon: '⚙' },
 ]
 
 export function AdiMark() {

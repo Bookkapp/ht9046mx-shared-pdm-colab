@@ -80,7 +80,7 @@ h2 { font-size: .98rem; letter-spacing: -.025em; }
 .secondary-button:hover { color: var(--green); border-color: #a8cdbf; background: #fbfdfc; }
 .danger-button { border-color: #efc4bf; }
 .date-field { font-size: .53rem; }
-.date-field input, .filters input, .filters select, .compare-row select, .field input, .field textarea, .handler-row input { border-color: var(--line); border-radius: 8px; }
+.date-field input, .filters input, .filters select, .compare-row select, .field input, .field textarea { border-color: var(--line); border-radius: 8px; }
 
 .panel, .directory-panel, .stat-card, .artifact-hero, .compare-summary article { border-color: var(--line); border-radius: 13px; box-shadow: 0 1px 1px rgba(10,40,30,.02); }
 .panel { padding: 17px; }
@@ -146,7 +146,7 @@ h2 { font-size: .98rem; letter-spacing: -.025em; }
 .compare-summary span, .compare-summary small { font-size: .55rem; }
 .compare-summary strong { margin: 9px 0 4px; font-size: 1.15rem; }
 
-.profile-layout, .pipeline-layout, .handler-layout { gap: 11px; }
+.profile-layout, .pipeline-layout { gap: 11px; }
 .baseline-grid > div, .artifact-metrics div, .lifecycle-list li, .derived-path { border-radius: 8px; }
 .equation-box { border-left-color: var(--green); border-radius: 0 8px 8px 0; background: #f5faf8; }
 .equation-box code { color: #176348; }
@@ -163,9 +163,6 @@ h2 { font-size: .98rem; letter-spacing: -.025em; }
 .pipeline-stage code { color: #176348; border-radius: 7px; background: #eef8f4; }
 .pipeline-aside .panel { border-radius: 12px; }
 
-.handler-form { border-top: 3px solid var(--green); }
-.handler-row { border-color: var(--line); border-radius: 10px; }
-.handler-row:hover { background: #fbfdfc; }
 
 @media (max-width: 1320px) {
   .machine-grid { grid-template-columns: repeat(3, 1fr); }

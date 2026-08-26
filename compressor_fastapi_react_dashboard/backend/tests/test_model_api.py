@@ -1,11 +1,28 @@
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 
 import httpx
 
 from app.api import app
 from app.model_store import store
+
+
+class _Source:
+    config = SimpleNamespace(host="10.195.17.73", readings_table="ht9046mx_readings")
+
+    def health(self):
+        return {"connected": True, "host": self.config.host, "readings_table": self.config.readings_table}
+
+    def machines(self):
+        return ["MX017", "MX057", "MX070", "MX083"]
+
+    def latest_by_machine(self):
+        return {}
+
+
+store.source = _Source()
 
 
 def get(path: str) -> httpx.Response:
@@ -37,19 +54,19 @@ def test_pipeline_contract_exposes_gates_equations_and_human_activation() -> Non
     assert payload["policy"]["shared_lstm_weights_mutable"] is False
 
 
-def test_fleet_contract_uses_supplied_handler_configuration() -> None:
+def test_fleet_contract_uses_mysql_machine_directory() -> None:
     payload = get("/api/v1/model/fleet").json()
-    assert payload["summary"]["configured_handlers"] == 14
+    assert payload["summary"]["mysql_machines"] == 4
     assert {item["machine_id"] for item in payload["machines"]} >= {"MX017", "MX057", "MX070", "MX083"}
     assert all("lifecycle_state" in item for item in payload["machines"])
 
 
-def test_sync_status_is_available_even_before_the_first_smb_cycle() -> None:
-    response = get("/api/v1/sync/status")
+def test_source_status_reports_mysql_connectivity() -> None:
+    response = get("/api/v1/source/status")
     assert response.status_code == 200
     payload = response.json()
-    assert "available" in payload
-    assert "latest" in payload
+    assert payload["connected"] is True
+    assert payload["host"] == "10.195.17.73"
 
 
 def test_flattened_evidence_keeps_com2_and_lstm_separate() -> None:

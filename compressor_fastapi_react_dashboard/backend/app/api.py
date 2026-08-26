@@ -13,24 +13,8 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from .catalog import catalog_payload
-from .handler_store import (
-    create_handler,
-    delete_handler,
-    list_handlers,
-    update_handler,
-)
 from .model_store import store
 from .settings import settings
-
-
-class HandlerCreate(BaseModel):
-    machine_code: str
-    ip: str
-
-
-class HandlerUpdate(BaseModel):
-    ip: str | None = None
-    enabled: bool | None = None
 
 
 class ComparisonSeries(BaseModel):
@@ -51,8 +35,8 @@ class ApprovalRequest(BaseModel):
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    # Handler records live in the persistent server state directory. The
-    # dashboard never writes the Git-tracked model configuration on startup.
+    # MySQL credentials are loaded from backend/.env; no source config is
+    # written by the dashboard at startup.
     yield
 
 
@@ -106,8 +90,9 @@ def liveness() -> dict[str, str]:
 
 @app.get(f"{API}/health")
 def health(response: Response) -> dict[str, Any]:
+    mysql = store.source_status()
     checks = {
-        "handlers": settings.handlers_file.exists(),
+        "mysql": bool(mysql.get("connected")),
         "controlled_config": settings.controlled_system_config.exists(),
         "controlled_policy": settings.controlled_policy_file.exists(),
         "controlled_runtime": settings.controlled_runtime_dir.exists(),
@@ -123,6 +108,7 @@ def health(response: Response) -> dict[str, Any]:
         "status": "ready" if ready else "not_ready",
         "checked_at": datetime.now(timezone.utc),
         "checks": checks,
+        "mysql": mysql,
         "policy_version": store.pipeline().get("policy", {}).get("policy_version"),
     }
 
@@ -135,7 +121,9 @@ def config() -> dict[str, Any]:
         "api_prefix": settings.api_prefix,
         "writes_require_api_key": bool(settings.api_key),
         "model_monitor_mode": "controlled_hybrid_v1",
-        "handler_destination_root": str(settings.handler_destination_root),
+        "data_source": "mysql",
+        "mysql_host": store.source.config.host,
+        "readings_table": store.source.config.readings_table,
     }
 
 
@@ -144,58 +132,9 @@ def catalog() -> dict[str, Any]:
     return catalog_payload()
 
 
-@app.get(f"{API}/handlers")
-def handlers() -> list[dict[str, Any]]:
-    try:
-        return list_handlers()
-    except (FileNotFoundError, ValueError) as error:
-        raise _value_error(error) from error
-
-
-@app.get(f"{API}/sync/status")
-def sync_status() -> dict[str, Any]:
-    return store.sync_status()
-
-
-@app.post(
-    f"{API}/handlers",
-    status_code=201,
-    dependencies=[Depends(require_api_key)],
-)
-def add_handler(payload: HandlerCreate) -> dict[str, Any]:
-    try:
-        return create_handler(payload.machine_code, payload.ip)
-    except (FileNotFoundError, ValueError) as error:
-        raise _value_error(error) from error
-
-
-@app.patch(
-    f"{API}/handlers/{{machine_id}}",
-    dependencies=[Depends(require_api_key)],
-)
-def patch_handler(machine_id: str, payload: HandlerUpdate) -> dict[str, Any]:
-    try:
-        return update_handler(
-            machine_id, ip=payload.ip, enabled=payload.enabled
-        )
-    except (FileNotFoundError, ValueError) as error:
-        raise _value_error(error) from error
-
-
-@app.delete(
-    f"{API}/handlers/{{machine_id}}",
-    dependencies=[Depends(require_api_key)],
-)
-def remove_handler(machine_id: str) -> dict[str, Any]:
-    try:
-        removed = delete_handler(machine_id)
-        return {
-            "removed": removed,
-            "data_deleted": False,
-            "message": "Future sync/model onboarding disabled; copied logs and profiles were retained.",
-        }
-    except (FileNotFoundError, ValueError) as error:
-        raise _value_error(error) from error
+@app.get(f"{API}/source/status")
+def source_status() -> dict[str, Any]:
+    return store.source_status()
 
 
 @app.get(f"{API}/model/artifact")

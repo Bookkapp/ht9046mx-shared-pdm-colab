@@ -34,9 +34,6 @@ class Settings:
     model_project_root: Path = _path(
         "MODEL_PROJECT_ROOT", DASHBOARD_ROOT.parent, base=DASHBOARD_ROOT
     )
-    handlers_file: Path = _path(
-        "HANDLERS_FILE", BACKEND_ROOT / "config" / "handlers.json"
-    )
     controlled_system_config: Path = _path(
         "CONTROLLED_SYSTEM_CONFIG",
         DASHBOARD_ROOT.parent / "configs" / "controlled_condition_monitoring.json",
@@ -54,12 +51,6 @@ class Settings:
     )
     frontend_dist: Path = _path(
         "FRONTEND_DIST", DASHBOARD_ROOT / "frontend" / "dist"
-    )
-    handler_destination_root: Path = _path(
-        "HANDLER_DESTINATION_ROOT", Path(r"C:\HT9046MX\data\incoming")
-    )
-    handler_share_template: str = os.getenv(
-        "HANDLER_SHARE_TEMPLATE", "Comp_log_data_{machine_code}"
     )
     timezone: str = os.getenv("DASHBOARD_TIMEZONE", "Asia/Bangkok")
     api_prefix: str = os.getenv("API_PREFIX", "/api/v1").rstrip("/")

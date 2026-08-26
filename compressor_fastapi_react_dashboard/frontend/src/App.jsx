@@ -4,7 +4,6 @@ const FleetPage = lazy(() => import('./pages/FleetPage'))
 const MachinePage = lazy(() => import('./pages/MachinePage'))
 const ComparePage = lazy(() => import('./pages/ComparePage'))
 const PipelinePage = lazy(() => import('./pages/PipelinePage'))
-const HandlersPage = lazy(() => import('./pages/HandlersPage'))
 
 function route() {
   const hash = window.location.hash || '#/'
@@ -12,7 +11,6 @@ function route() {
   if (machine) return { page: 'machine', machine: machine[1].toUpperCase() }
   if (hash === '#/compare') return { page: 'compare' }
   if (hash === '#/pipeline') return { page: 'pipeline' }
-  if (hash === '#/handlers') return { page: 'handlers' }
   return { page: 'fleet' }
 }
 
@@ -27,7 +25,6 @@ export default function App() {
     {current.page === 'machine' ? <MachinePage machine={current.machine} /> : null}
     {current.page === 'compare' ? <ComparePage /> : null}
     {current.page === 'pipeline' ? <PipelinePage /> : null}
-    {current.page === 'handlers' ? <HandlersPage /> : null}
     {current.page === 'fleet' ? <FleetPage /> : null}
   </Suspense>
 }
