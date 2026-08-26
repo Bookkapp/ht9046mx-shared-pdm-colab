@@ -3,6 +3,11 @@
 FastAPI + React dashboard deployed on `10.195.17.69`. It reads telemetry
 directly and read-only from MySQL on `10.195.17.73`.
 
+Only `10.195.17.69` receives this Git repository, the dashboard build, Python
+environment, and `C:\HT9046MX\state` model runtime. The database machine
+`10.195.17.73` keeps only its existing MySQL/database/importer; do not copy the
+dashboard folder, `.env`, or runtime state there.
+
 It does not read handler log files, SMB shares, `handlers.json`, or local
 copied data. Machines appear automatically from distinct `machine_number`
 values in `ht9046mx_iot.ht9046mx_readings`.

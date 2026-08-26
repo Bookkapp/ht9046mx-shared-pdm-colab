@@ -12,6 +12,29 @@ The deployment does **not** use SMB, UNC shares, `net use`, handler IP setup,
 file synchronization, or direct log-file scanning. MySQL is the only live
 telemetry source.
 
+## Two separate servers — do not copy folders between them
+
+This repository is installed **only on the Web/model server**. The MySQL
+database is an existing, separate service; this project connects to it over
+the network and does not deploy files to it.
+
+| Machine | Role | Folders managed by this project | Must not contain |
+|---|---|---|---|
+| `10.195.17.73` | **Database Server** | None. It retains the existing MySQL service, `ht9046mx_iot` database, `ht9046mx_readings` table, and its existing data-import process. | This Git checkout, `.venv`, `controlled_runtime`, FastAPI, React, or Task Scheduler task from this project. |
+| `10.195.17.69` | **Web/model Server** | `C:\HT9046MX\app` (Git checkout and Python environment) and `C:\HT9046MX\state` (persistent model state). | A copied MySQL data folder or any SMB/handler-log collector. |
+
+The only cross-server path is network traffic:
+
+```text
+10.195.17.69  -- MySQL TCP 3306, read-only -->  10.195.17.73
+Browser        -- HTTP TCP 8000 ------------->  10.195.17.69
+```
+
+Before deploying the application, the database administrator must confirm
+that a read-only MySQL account can connect from `10.195.17.69` to the existing
+readings table. No model code, Task Scheduler task, or repository setup is
+required on `10.195.17.73`.
+
 ## Runtime flow
 
 ```text
@@ -32,11 +55,14 @@ http://10.195.17.69:8000
 The runner never retrains the Shared LSTM from live data and never writes back
 to MySQL. Profile activation still requires human approval.
 
-## Deploy on 10.195.17.69
+## Deploy only on Web/model Server `10.195.17.69`
 
-### 1. Get the MySQL-only revision
+Run every command in this section on `10.195.17.69` only. Do not run these
+commands on the Database Server `10.195.17.73`.
 
-Merge the MySQL-only pull request, then on the Web App server:
+### 1. Get the MySQL-only revision on the Web/model Server
+
+On the Web/model Server, update the checked-out `main` branch:
 
 ```powershell
 cd "C:\HT9046MX\app"
@@ -72,7 +98,7 @@ the SMB scripts are removed:
 Unregister-ScheduledTask -TaskName "HT9046MX-SMB-Sync" -Confirm:$false -ErrorAction SilentlyContinue
 ```
 
-### 3. Configure MySQL credentials
+### 3. Configure the remote MySQL connection on the Web/model Server
 
 Create `C:\HT9046MX\app\compressor_fastapi_react_dashboard\backend\.env`
 from `.env.example`. Set credentials supplied by the database administrator;
@@ -102,7 +128,8 @@ Leave `READINGS_MODULE_COLUMN` blank for the normal wide source layout such
 as `Hp_1st_1` through `TempLo_8`. Set it only when the database has one row per
 module.
 
-The Fleet page marks a machine **ONLINE** only when its newest MySQL
+This `.env` file is stored only on `10.195.17.69`; it is not copied to the
+Database Server. The Fleet page marks a machine **ONLINE** only when its newest MySQL
 `recorded_at` is no more than `MYSQL_STALE_AFTER_MINUTES` old. It shows the
 source event time and age for every machine; use `STALE` to investigate a
 delayed MySQL importer and `DATABASE_UNAVAILABLE` for a connection failure.
@@ -179,7 +206,8 @@ when integer-style source values make that necessary.
   stop command.
 - Candidate profiles must pass shadow validation and human approval before
   becoming `ACTIVE_FROZEN`.
-- Back up `C:\HT9046MX\state\controlled_runtime`.
+- Back up `C:\HT9046MX\state\controlled_runtime` on **10.195.17.69**. This
+  operational state is not part of the MySQL server or its database backup.
 - Never commit `.env` or a database password.
 
 See [SERVER_FOLDER_LAYOUT.md](SERVER_FOLDER_LAYOUT.md) for the permanent

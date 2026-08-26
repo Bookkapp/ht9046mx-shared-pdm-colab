@@ -1,12 +1,34 @@
-# HT9046MX MySQL-only Server Layout
+# HT9046MX Two-Server Layout
 
-The model application is deployed on **10.195.17.69**. It reads telemetry
-read-only from MySQL on **10.195.17.73**; it never connects to SMB shares or
-copies handler log files.
+There are two different machines with two different responsibilities. They do
+not share an application folder, Python environment, model state folder, or
+Task Scheduler task.
+
+## Database Server — `10.195.17.73`
+
+This project does **not** install, copy, or initialize any folder on this
+machine. It contains the existing MySQL service and existing ingestion process:
+
+```text
+MySQL service
+└── ht9046mx_iot
+    └── ht9046mx_readings       Existing live telemetry table
+```
+
+The database administrator owns its database backup, table retention,
+importer, database user, and firewall policy. The only requirement for this
+project is that the Web/model Server `10.195.17.69` has read-only TCP access to
+the configured table on port 3306.
+
+## Web/model Server — `10.195.17.69`
+
+Everything below exists only on the Web/model Server. It reads telemetry
+read-only from the Database Server; it never connects to SMB shares or copies
+handler log files.
 
 ```text
 C:\HT9046MX\
-├── app\                                      Git checkout on 10.195.17.69
+├── app\                                      Git checkout on Web/model Server
 │   ├── artifacts\shared_lstm_colab_full\      Immutable 30-epoch Shared LSTM
 │   ├── compressor_ml\                         MySQL reader + model pipeline
 │   ├── compressor_fastapi_react_dashboard\    FastAPI + React web application
@@ -21,18 +43,21 @@ C:\HT9046MX\
 ```
 
 `state\controlled_runtime` is the only operational folder that must be backed
-up. It contains frozen profiles, model decisions, lifecycle approvals and the
-MySQL time cursor. MySQL remains the source of telemetry truth.
+up by this project. It exists on `10.195.17.69` and contains frozen profiles,
+model decisions, lifecycle approvals and the MySQL time cursor. MySQL remains
+the source of telemetry truth and is backed up separately by the Database
+Server owner.
 
-## MySQL contract
+## Connection contract between the two servers
 
-Credentials belong only in:
+Credentials belong only on the Web/model Server in:
 
 ```text
 C:\HT9046MX\app\compressor_fastapi_react_dashboard\backend\.env
 ```
 
-The shipped configuration uses these defaults, all overrideable in `.env`:
+The shipped configuration uses these defaults, all overrideable in the
+Web/model Server `.env`:
 
 | Setting | Default |
 |---|---|
@@ -58,7 +83,7 @@ cd "C:\HT9046MX\app"
   --system-config "C:\HT9046MX\state\config\controlled_condition_monitoring.json" source-check
 ```
 
-## Scheduled flow
+## Scheduled flow across separate machines
 
 ```text
 MySQL 10.195.17.73 (read-only telemetry)

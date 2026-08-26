@@ -24,10 +24,10 @@ Data Analysis\
 
 | Data | Owner | Use |
 |---|---|---|
-| `10.195.17.73 / ht9046mx_iot.ht9046mx_readings` | Existing MySQL ingestion | Only live telemetry source; application issues read-only queries. |
+| `10.195.17.73 / ht9046mx_iot.ht9046mx_readings` | Database Server, existing MySQL ingestion | Only live telemetry source; this repository is not installed on this machine and application issues read-only queries over TCP. |
 | `artifacts\shared_lstm_colab_full` | Git deployment | Immutable Shared LSTM model/scalers/thresholds. |
-| `C:\HT9046MX\state\controlled_runtime` | Model runner on `10.195.17.69` | Versioned profiles, decisions, audit trail and MySQL cursor. |
-| `backend\.env` | Server operator | MySQL credentials and deployment paths; never commit. |
+| `C:\HT9046MX\state\controlled_runtime` | Web/model Server `10.195.17.69` only | Versioned profiles, decisions, audit trail and MySQL cursor; back up separately from the database. |
+| `backend\.env` | Web/model Server operator | MySQL credentials and deployment paths; never commit or copy it to the Database Server. |
 
 ## Removed from production
 
