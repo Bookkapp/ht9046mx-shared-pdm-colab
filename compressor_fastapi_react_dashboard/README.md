@@ -16,6 +16,9 @@ values in `ht9046mx_iot.ht9046mx_readings`.
 
 `backend\.env` must set `MYSQL_HOST=10.195.17.73`, a read-only MySQL user and
 the readings-table mappings. See the root [README](../README.md) for setup.
+Set `MYSQL_STALE_AFTER_MINUTES=30` to mark a machine ONLINE only when its
+latest MySQL `recorded_at` is at most 30 minutes old; the Fleet page shows the
+event timestamp and age for every machine.
 
 Run locally on the Web App server:
 

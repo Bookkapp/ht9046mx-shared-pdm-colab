@@ -124,6 +124,7 @@ def config() -> dict[str, Any]:
         "data_source": "mysql",
         "mysql_host": store.source.config.host,
         "readings_table": store.source.config.readings_table,
+        "mysql_stale_after_minutes": settings.mysql_stale_after_minutes,
     }
 
 

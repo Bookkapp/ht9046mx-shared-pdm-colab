@@ -456,8 +456,50 @@ class ModelMonitorStore:
         artifact = self.artifact()
         machines: list[dict[str, Any]] = []
         review_counts: defaultdict[str, int] = defaultdict(int)
-        freshness = self.source.latest_by_machine()
-        for machine in self.source.machines():
+        mysql = self.source.health()
+        freshness: dict[str, pd.Timestamp] = {}
+        machine_ids: list[str] = []
+        if mysql.get("connected"):
+            try:
+                freshness = self.source.latest_by_machine()
+                machine_ids = self.source.machines()
+            except Exception as error:
+                # A connection can disappear between the health check and the
+                # two read queries. Keep the dashboard available and make the
+                # source failure explicit instead of returning an API 500.
+                mysql = {
+                    **mysql,
+                    "connected": False,
+                    "error": f"{type(error).__name__}: {error}",
+                }
+
+        source_timezone = getattr(self.source.config, "timezone", settings.timezone)
+        now = pd.Timestamp.now(tz=source_timezone)
+
+        def event_age_minutes(value: Any) -> float | None:
+            if value is None or pd.isna(value):
+                return None
+            event_time = pd.Timestamp(value)
+            if event_time.tzinfo is None:
+                event_time = event_time.tz_localize(source_timezone)
+            else:
+                event_time = event_time.tz_convert(source_timezone)
+            # A small future clock skew must not make a source look newer than now.
+            return round(max(0.0, (now - event_time).total_seconds() / 60), 1)
+
+        stale_after_minutes = settings.mysql_stale_after_minutes
+        latest_event = max(freshness.values(), default=None)
+        latest_event_age_minutes = event_age_minutes(latest_event)
+        if not mysql.get("connected"):
+            source_status = "DATABASE_UNAVAILABLE"
+        elif latest_event_age_minutes is None:
+            source_status = "NO_DATA"
+        elif latest_event_age_minutes <= stale_after_minutes:
+            source_status = "ONLINE"
+        else:
+            source_status = "STALE"
+
+        for machine in machine_ids:
             lifecycle = self._lifecycle(machine)
             predictions = [self._flatten_prediction(item) for item in self._predictions(machine)]
             latest_by_module: dict[int, dict[str, Any]] = {}
@@ -485,8 +527,15 @@ class ModelMonitorStore:
                 {
                     "machine_id": machine,
                     "data_source_available": machine in freshness,
-                    "latest_source_at": (
-                        freshness[machine].isoformat() if machine in freshness else None
+                    "latest_source_at": _iso(freshness.get(machine)),
+                    "latest_source_age_minutes": event_age_minutes(freshness.get(machine)),
+                    "telemetry_status": (
+                        "ONLINE"
+                        if event_age_minutes(freshness.get(machine)) is not None
+                        and event_age_minutes(freshness.get(machine)) <= stale_after_minutes
+                        else "STALE"
+                        if event_age_minutes(freshness.get(machine)) is not None
+                        else "NO_DATA"
                     ),
                     "lifecycle_state": lifecycle.get("state"),
                     "candidate_version": candidate_version,
@@ -504,13 +553,30 @@ class ModelMonitorStore:
         states: defaultdict[str, int] = defaultdict(int)
         for machine in machines:
             states[str(machine["lifecycle_state"])] += 1
+        telemetry_counts: defaultdict[str, int] = defaultdict(int)
+        for machine in machines:
+            telemetry_counts[str(machine["telemetry_status"])] += 1
         return {
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "policy_version": self._policy().get("policy_version"),
             "artifact": artifact,
+            "source": {
+                "status": source_status,
+                "connected": bool(mysql.get("connected")),
+                "host": mysql.get("host"),
+                "database": mysql.get("database"),
+                "readings_table": mysql.get("readings_table"),
+                "latest_event_at": _iso(latest_event),
+                "latest_event_age_minutes": latest_event_age_minutes,
+                "stale_after_minutes": stale_after_minutes,
+                "message": mysql.get("error"),
+            },
             "summary": {
                 "mysql_machines": len(machines),
-                "data_sources_available": sum(bool(item["data_source_available"]) for item in machines),
+                "data_sources_available": telemetry_counts["ONLINE"],
+                "mysql_online": telemetry_counts["ONLINE"],
+                "mysql_stale": telemetry_counts["STALE"],
+                "mysql_no_data": telemetry_counts["NO_DATA"],
                 "active_frozen": states[LifecycleState.ACTIVE.value],
                 "approval_required": states[LifecycleState.APPROVAL_REQUIRED.value],
                 "shadow_validation": states[LifecycleState.SHADOW_VALIDATION.value],
@@ -519,7 +585,7 @@ class ModelMonitorStore:
                 "p2_review_records": review_counts["P2_REVIEW"],
             },
             "machines": machines,
-            "freshness_note": "MySQL MAX(recorded_at) is event-time freshness; model decisions may lag until the next five-minute cycle.",
+            "freshness_note": "ONLINE means MySQL MAX(recorded_at) is no older than the configured threshold. Model decisions may lag until the next five-minute cycle.",
         }
 
     def comparison(

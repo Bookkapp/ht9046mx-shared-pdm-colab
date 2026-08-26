@@ -4,13 +4,18 @@ import asyncio
 from types import SimpleNamespace
 
 import httpx
+import pandas as pd
 
 from app.api import app
 from app.model_store import store
 
 
 class _Source:
-    config = SimpleNamespace(host="10.195.17.73", readings_table="ht9046mx_readings")
+    config = SimpleNamespace(
+        host="10.195.17.73",
+        readings_table="ht9046mx_readings",
+        timezone="Asia/Bangkok",
+    )
 
     def health(self):
         return {"connected": True, "host": self.config.host, "readings_table": self.config.readings_table}
@@ -19,7 +24,11 @@ class _Source:
         return ["MX017", "MX057", "MX070", "MX083"]
 
     def latest_by_machine(self):
-        return {}
+        now = pd.Timestamp.now(tz=self.config.timezone)
+        return {
+            "MX017": now - pd.Timedelta(minutes=5),
+            "MX057": now - pd.Timedelta(minutes=31),
+        }
 
 
 store.source = _Source()
@@ -57,8 +66,14 @@ def test_pipeline_contract_exposes_gates_equations_and_human_activation() -> Non
 def test_fleet_contract_uses_mysql_machine_directory() -> None:
     payload = get("/api/v1/model/fleet").json()
     assert payload["summary"]["mysql_machines"] == 4
+    assert payload["source"]["status"] == "ONLINE"
+    assert payload["source"]["stale_after_minutes"] == 30
+    assert payload["summary"]["mysql_online"] == 1
+    assert payload["summary"]["mysql_stale"] == 1
     assert {item["machine_id"] for item in payload["machines"]} >= {"MX017", "MX057", "MX070", "MX083"}
     assert all("lifecycle_state" in item for item in payload["machines"])
+    states = {item["machine_id"]: item["telemetry_status"] for item in payload["machines"]}
+    assert states == {"MX017": "ONLINE", "MX057": "STALE", "MX070": "NO_DATA", "MX083": "NO_DATA"}
 
 
 def test_source_status_reports_mysql_connectivity() -> None:

@@ -95,11 +95,17 @@ CONTROLLED_RUNTIME_DIR=C:\HT9046MX\state\controlled_runtime
 SHARED_MODEL_ARTIFACT=C:\HT9046MX\app\artifacts\shared_lstm_colab_full
 DASHBOARD_HOST=0.0.0.0
 DASHBOARD_PORT=8000
+MYSQL_STALE_AFTER_MINUTES=30
 ```
 
 Leave `READINGS_MODULE_COLUMN` blank for the normal wide source layout such
 as `Hp_1st_1` through `TempLo_8`. Set it only when the database has one row per
 module.
+
+The Fleet page marks a machine **ONLINE** only when its newest MySQL
+`recorded_at` is no more than `MYSQL_STALE_AFTER_MINUTES` old. It shows the
+source event time and age for every machine; use `STALE` to investigate a
+delayed MySQL importer and `DATABASE_UNAVAILABLE` for a connection failure.
 
 ### 4. Validate MySQL before scoring
 
