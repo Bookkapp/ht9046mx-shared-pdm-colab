@@ -34,9 +34,6 @@ class Settings:
     model_project_root: Path = _path(
         "MODEL_PROJECT_ROOT", DASHBOARD_ROOT.parent, base=DASHBOARD_ROOT
     )
-    handlers_file: Path = _path(
-        "HANDLERS_FILE", BACKEND_ROOT / "config" / "handlers.json"
-    )
     controlled_system_config: Path = _path(
         "CONTROLLED_SYSTEM_CONFIG",
         DASHBOARD_ROOT.parent / "configs" / "controlled_condition_monitoring.json",
@@ -55,12 +52,6 @@ class Settings:
     frontend_dist: Path = _path(
         "FRONTEND_DIST", DASHBOARD_ROOT / "frontend" / "dist"
     )
-    handler_destination_root: Path = _path(
-        "HANDLER_DESTINATION_ROOT", Path(r"C:\HT9046MX\data\incoming")
-    )
-    handler_share_template: str = os.getenv(
-        "HANDLER_SHARE_TEMPLATE", "Comp_log_data_{machine_code}"
-    )
     timezone: str = os.getenv("DASHBOARD_TIMEZONE", "Asia/Bangkok")
     api_prefix: str = os.getenv("API_PREFIX", "/api/v1").rstrip("/")
     api_key: str = os.getenv("API_KEY", "")
@@ -73,6 +64,7 @@ class Settings:
         if item.strip()
     )
     refresh_seconds: int = _integer("DASHBOARD_REFRESH_SECONDS", 15, 5)
+    mysql_stale_after_minutes: int = _integer("MYSQL_STALE_AFTER_MINUTES", 30, 1)
     chart_point_limit: int = _integer("DASHBOARD_CHART_POINT_LIMIT", 576, 48)
     prediction_read_limit: int = _integer(
         "DASHBOARD_PREDICTION_READ_LIMIT", 20_000, 1_000
